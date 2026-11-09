@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
+<title>FROG LIFE</title>
+<style>
+  body {
+    margin: 0; padding: 12px; background: #131c14; color: #d8ebd9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace, sans-serif;
+    font-size: 14px;
+  }
+  .container { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+  .panel { background: #1f2b20; border: 1px solid #3c543e; padding: 12px; border-radius: 8px; }
+  h1 { font-size: 18px; margin: 0 0 10px 0; color: #88cc88; text-align: center; }
+
+  input, select, button {
+    width: 100%; padding: 12px; margin-top: 8px; background: #162417; color: #fff;
+    border: 1px solid #3c543e; border-radius: 6px; font-size: 15px; box-sizing: border-box;
+  }
+  button { font-weight: bold; cursor: pointer; }
+  button.primary { background: #3f7a45; border-color: #55995c; }
+  button.secondary { background: #2a3d2c; border-color: #446147; }
+
+  #game-screen { display: none; }
+  .header { display: flex; justify-content: space-between; font-weight: bold; }
+  .player-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .p-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; background: #2c3d2e; border: 1px solid #48634a; }
+  .p-ready { border-color: #88cc88; background: #274d2b; color: #aaffaa; }
+
+  .zone-row { border-bottom: 1px dashed #3c543e; padding: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .zone-row:last-child { border-bottom: none; }
+  .actors { display: flex; gap: 4px; flex-wrap: wrap; }
+  .frog-icon { padding: 3px 6px; border-radius: 4px; font-size: 11px; background: #3d593f; }
+  .my-frog { background: #2f7a35; border: 1px solid #77dd77; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- ロビー画面 -->
+  <div id="lobby-screen" class="panel">
+    <h1>🐸 FROG LIFE</h1>
+    <div style="font-size:12px; color:#aaa; text-align:center; margin-bottom:12px;">池の生存競争（1マッチ 15分）</div>
+    <label style="font-size:12px;">あなたの名前:</label>
+    <input type="text" id="user-name" value="カエル" maxlength="8">
+    <div style="margin-top:16px; border-top:1px dashed #3c543e; padding-top:12px;">
+      <button class="primary" onclick="createRoom()">＋ 新しい部屋を作る (ホスト)</button>
+      <div style="text-align:center; margin:12px 0 4px 0; color:#888; font-size:12px;">— または —</div>
+      <label style="font-size:12px;">合言葉（4桁ルームID）:</label>
+      <input type="number" id="room-input" placeholder="例: 1234">
+      <button class="secondary" onclick="joinRoomByInput()">合言葉で池に入る ➔</button>
+    </div>
+  </div>
+
+  <!-- ゲーム画面 -->
+  <div id="game-screen">
+    <div class="panel">
+      <div class="header">
+        <span id="room-display" style="color:#88cc88;">ROOM: ----</span>
+        <span id="turn-txt">TURN 1</span>
+        <span id="timer-txt" style="color:#ffaa66;">45秒</span>
+      </div>
+      <div style="margin-top:6px; font-size:12px; color:#f0d060;" id="event-txt">待機中...</div>
+      <button class="secondary" style="padding:6px; font-size:12px; margin-top:8px;" onclick="copyInviteUrl()">
+        🔗 友達をLINE等で招待（URLコピー）
+      </button>
+      <div style="font-size:11px; margin-top:8px; color:#aaa;">参加中のカエル:</div>
+      <div class="player-list" id="player-list"></div>
+    </div>
+
+    <!-- マップ -->
+    <div class="panel" style="padding:4px 8px;">
+      <div class="zone-row" style="background:#2d2415;"><span>⑤ 草むら</span><div class="actors" id="z-4"></div></div>
+      <div class="zone-row" style="background:#202919;"><span>④ 水際</span><div class="actors" id="z-3"></div></div>
+      <div class="zone-row" style="background:#162429;"><span>③ 水面</span><div class="actors" id="z-2"></div></div>
+      <div class="zone-row" style="background:#111f26;"><span>② 水中</span><div class="actors" id="z-1"></div></div>
+      <div class="zone-row" style="background:#16191c;"><span>① 水底</span><div class="actors" id="z-0"></div></div>
+    </div>
+
+    <!-- 行動 -->
+    <div class="panel">
+      <label style="font-size:12px;">移動先エリア:</label>
+      <select id="move-sel">
+        <option value="0">① 水底・泥地</option>
+        <option value="1" selected>② 水中(水草)</option>
+        <option value="2">③ 水面・浅瀬</option>
+        <option value="3">④ 水際・湿地</option>
+        <option value="4">⑤ 草むら・陸地</option>
+      </select>
+      <button class="primary" id="submit-btn" onclick="sendAction()">この行動で確定する ✔</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let ws = null;
+let currentRoomId = null;
+let myPlayerId = null;
+
+window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const roomIdFromUrl = params.get("room");
+  if (roomIdFromUrl) {
+    document.getElementById("room-input").value = roomIdFromUrl;
+  }
+});
+
+function createRoom() {
+  const randomRoomId = Math.floor(1000 + Math.random() * 9000).toString();
+  joinRoom(randomRoomId);
+}
+
+function joinRoomByInput() {
+  const roomId = document.getElementById("room-input").value.trim();
+  if (!roomId) { alert("合言葉を入力してください"); return; }
+  joinRoom(roomId);
+}
+
+function joinRoom(roomId) {
+  currentRoomId = roomId;
+  const myName = document.getElementById("user-name").value.trim() || "カエル";
+
+  document.getElementById("lobby-screen").style.display = "none";
+  document.getElementById("game-screen").style.display = "block";
+  document.getElementById("room-display").innerText = `池: #${roomId}`;
+  window.history.pushState({}, "", `?room=${roomId}`);
+
+  // 自動でWebSocket接続（Render用：httpsならwss、httpならws）
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: "JOIN_ROOM", roomId: roomId, name: myName }));
+  };
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === "INIT") {
+      myPlayerId = data.myId;
+    } else if (data.type === "STATE_UPDATE") {
+      render(data.state);
+    }
+  };
+}
+
+function copyInviteUrl() {
+  const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoomId}`;
+  navigator.clipboard.writeText(inviteUrl).then(() => {
+    alert(`招待URLをコピーしました！\nLINE等で友達に送れます：\n${inviteUrl}`);
+  }).catch(() => { alert(`招待URL: ${inviteUrl}`); });
+}
+
+function render(state) {
+  document.getElementById("turn-txt").innerText = `TURN ${state.turn}`;
+  document.getElementById("timer-txt").innerText = `${state.timeLeft}秒`;
+  document.getElementById("event-txt").innerText = state.event;
+
+  const pListEl = document.getElementById("player-list");
+  pListEl.innerHTML = "";
+  for (const pid in state.players) {
+    const p = state.players[pid];
+    const isMe = (pid === myPlayerId);
+    const badge = document.createElement("div");
+    badge.className = `p-badge ${p.ready ? 'p-ready' : ''}`;
+    badge.innerText = `${isMe ? '🐸あなた' : p.name} [${p.ready ? '✔ 確定' : '💭 選択中'}]`;
+    pListEl.appendChild(badge);
+  }
+
+  for (let z = 0; z < 5; z++) document.getElementById(`z-${z}`).innerHTML = "";
+  for (const pid in state.players) {
+    const p = state.players[pid];
+    const isMe = (pid === myPlayerId);
+    const el = document.getElementById(`z-${p.zone}`);
+    if (el) el.innerHTML += `<span class="frog-icon ${isMe ? 'my-frog' : ''}">🐸 ${isMe ? 'あなた' : p.name}</span>`;
+  }
+
+  const myData = state.players[myPlayerId];
+  const btn = document.getElementById("submit-btn");
+  if (myData && myData.ready) {
+    btn.disabled = true;
+    btn.innerText = "他のカエルを待機中...";
+  } else {
+    btn.disabled = false;
+    btn.innerText = "この行動で確定する ✔";
+  }
+}
+
+function sendAction() {
+  const moveZone = parseInt(document.getElementById("move-sel").value);
+  ws.send(JSON.stringify({
+    type: "SUBMIT_ACTION",
+    action: { moveZone: moveZone, act: "feed" }
+  }));
+}
+</script>
+
+</body>
+</html>
