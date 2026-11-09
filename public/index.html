@@ -5,193 +5,427 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
 <title>FROG LIFE</title>
 <style>
-  body {
-    margin: 0; padding: 12px; background: #131c14; color: #d8ebd9;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace, sans-serif;
-    font-size: 14px;
+  :root {
+    --bg-color: #0c140e;
+    --panel-bg: #18241a;
+    --border-color: #38523c;
+    --text-color: #dbead8;
+    --accent-color: #7dd47d;
+    --danger-color: #e06666;
   }
-  .container { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
-  .panel { background: #1f2b20; border: 1px solid #3c543e; padding: 12px; border-radius: 8px; }
-  h1 { font-size: 18px; margin: 0 0 10px 0; color: #88cc88; text-align: center; }
+  body {
+    margin: 0; padding: 10px; background: var(--bg-color); color: var(--text-color);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace, sans-serif;
+    font-size: 13px;
+  }
+  .container { max-width: 460px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+  .panel { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; }
 
+  /* 入力とボタン */
   input, select, button {
-    width: 100%; padding: 12px; margin-top: 8px; background: #162417; color: #fff;
-    border: 1px solid #3c543e; border-radius: 6px; font-size: 15px; box-sizing: border-box;
+    width: 100%; padding: 10px; margin-top: 6px; background: #131c15; color: #fff;
+    border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; box-sizing: border-box;
   }
   button { font-weight: bold; cursor: pointer; }
-  button.primary { background: #3f7a45; border-color: #55995c; }
-  button.secondary { background: #2a3d2c; border-color: #446147; }
+  button.primary { background: #356e3b; border-color: #55995c; }
+  button.secondary { background: #263828; border-color: #405c43; font-size: 12px; }
+  button:disabled { background: #222; color: #666; cursor: not-allowed; }
 
-  #game-screen { display: none; }
-  .header { display: flex; justify-content: space-between; font-weight: bold; }
-  .player-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-  .p-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; background: #2c3d2e; border: 1px solid #48634a; }
-  .p-ready { border-color: #88cc88; background: #274d2b; color: #aaffaa; }
+  /* 画面切り替え */
+  #game-screen, #result-screen { display: none; }
 
-  .zone-row { border-bottom: 1px dashed #3c543e; padding: 8px; display: flex; justify-content: space-between; align-items: center; }
-  .zone-row:last-child { border-bottom: none; }
-  .actors { display: flex; gap: 4px; flex-wrap: wrap; }
-  .frog-icon { padding: 3px 6px; border-radius: 4px; font-size: 11px; background: #3d593f; }
-  .my-frog { background: #2f7a35; border: 1px solid #77dd77; font-weight: bold; }
+  /* ヘッダー */
+  .header { display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; }
+  .alert-box { color: var(--danger-color); font-weight: bold; margin-top: 4px; font-size: 12px; }
+
+  /* 2D断面アクアリウム描画 */
+  .canvas-box { width: 100%; height: 260px; background: #080f0a; border-radius: 4px; overflow: hidden; position: relative; }
+  svg { width: 100%; height: 100%; }
+
+  /* ステータスバー */
+  .status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 6px; }
+  .bar-box { background: #0a0f0a; border: 1px solid #334433; border-radius: 3px; padding: 2px 4px; font-size: 10px; text-align: center; }
+
+  /* イベントカード */
+  .event-card {
+    background: #233325; border-left: 4px solid #f0c040; padding: 8px; margin-top: 6px; border-radius: 0 4px 4px 0;
+  }
+  .event-title { font-weight: bold; color: #f0c040; margin-bottom: 2px; }
+  .event-desc { font-size: 11px; color: #ccc; margin-bottom: 6px; }
+
+  /* プレイヤーリスト */
+  .player-list { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .p-badge { padding: 2px 6px; border-radius: 3px; font-size: 10px; background: #263628; border: 1px solid #445c47; }
+  .p-ready { border-color: #88cc88; background: #28542c; color: #aaffaa; }
+
+  /* ログ */
+  #log-box { height: 90px; overflow-y: scroll; font-size: 11px; line-height: 1.4; background: #080d09; padding: 6px; border-radius: 4px; }
+
+  /* リザルト */
+  .rank-row { display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #334; }
+  .history-box { background: #111; padding: 8px; font-size: 11px; line-height: 1.5; border-radius: 4px; max-height: 180px; overflow-y: scroll; margin-top: 6px; }
 </style>
 </head>
 <body>
 
 <div class="container">
-  <!-- ロビー画面 -->
+
+  <!-- ================= 画面1：ロビー ================= -->
   <div id="lobby-screen" class="panel">
-    <h1>🐸 FROG LIFE</h1>
-    <div style="font-size:12px; color:#aaa; text-align:center; margin-bottom:12px;">池の生存競争（1マッチ 15分）</div>
-    <label style="font-size:12px;">あなたの名前:</label>
-    <input type="text" id="user-name" value="カエル" maxlength="8">
-    <div style="margin-top:16px; border-top:1px dashed #3c543e; padding-top:12px;">
+    <h2 style="color:var(--accent-color); margin:0 0 4px 0; text-align:center;">🐸 FROG LIFE</h2>
+    <div style="font-size:11px; color:#aaa; text-align:center; margin-bottom:12px;">ターン制 生態系サバイバル（全35ターン）</div>
+
+    <label>あなたの名前:</label>
+    <input type="text" id="user-name" value="アマガエル" maxlength="8">
+
+    <div style="margin-top:14px; border-top:1px dashed var(--border-color); padding-top:10px;">
       <button class="primary" onclick="createRoom()">＋ 新しい部屋を作る (ホスト)</button>
-      <div style="text-align:center; margin:12px 0 4px 0; color:#888; font-size:12px;">— または —</div>
-      <label style="font-size:12px;">合言葉（4桁ルームID）:</label>
+      <div style="text-align:center; margin:8px 0; color:#888; font-size:11px;">— または —</div>
+      <label>合言葉（4桁）:</label>
       <input type="number" id="room-input" placeholder="例: 1234">
       <button class="secondary" onclick="joinRoomByInput()">合言葉で池に入る ➔</button>
     </div>
   </div>
 
-  <!-- ゲーム画面 -->
+  <!-- ================= 画面2：ゲーム本編 ================= -->
   <div id="game-screen">
+    <!-- 環境ヘッダー -->
     <div class="panel">
       <div class="header">
-        <span id="room-display" style="color:#88cc88;">ROOM: ----</span>
-        <span id="turn-txt">TURN 1</span>
+        <span id="room-txt" style="color:var(--accent-color);">池: #----</span>
+        <span id="turn-txt">TURN 1 (朝 / 1日目)</span>
         <span id="timer-txt" style="color:#ffaa66;">45秒</span>
       </div>
-      <div style="margin-top:6px; font-size:12px; color:#f0d060;" id="event-txt">待機中...</div>
-      <button class="secondary" style="padding:6px; font-size:12px; margin-top:8px;" onclick="copyInviteUrl()">
-        🔗 友達をLINE等で招待（URLコピー）
-      </button>
-      <div style="font-size:11px; margin-top:8px; color:#aaa;">参加中のカエル:</div>
-      <div class="player-list" id="player-list"></div>
+      <div class="header" style="margin-top:4px; font-size:11px;">
+        <span id="weather-txt">☀️ 天候: 快晴 (次T: 曇り)</span>
+        <span id="alive-txt">生存: 25/25匹</span>
+      </div>
+      <div id="alert-txt" class="alert-box">気配: 周囲は静かだ……</div>
     </div>
 
-    <!-- マップ -->
-    <div class="panel" style="padding:4px 8px;">
-      <div class="zone-row" style="background:#2d2415;"><span>⑤ 草むら</span><div class="actors" id="z-4"></div></div>
-      <div class="zone-row" style="background:#202919;"><span>④ 水際</span><div class="actors" id="z-3"></div></div>
-      <div class="zone-row" style="background:#162429;"><span>③ 水面</span><div class="actors" id="z-2"></div></div>
-      <div class="zone-row" style="background:#111f26;"><span>② 水中</span><div class="actors" id="z-1"></div></div>
-      <div class="zone-row" style="background:#16191c;"><span>① 水底</span><div class="actors" id="z-0"></div></div>
+    <!-- 2D断面アクアリウム画面 -->
+    <div class="canvas-box">
+      <svg id="pond-svg" viewBox="0 0 360 260">
+        <!-- ⑤ 草むら -->
+        <rect x="0" y="0" width="360" height="90" fill="#1b2616"/>
+        <path d="M10,90 L25,20 L35,90 M80,90 L95,10 L110,90 M230,90 L245,25 L260,90" stroke="#2e4726" stroke-width="6" stroke-linecap="round"/>
+        <!-- ④ 水際・倒木 -->
+        <rect x="0" y="90" width="360" height="20" fill="#2d2417"/>
+        <rect x="30" y="86" width="60" height="12" rx="3" fill="#3d3020"/>
+        <!-- 水面ライン -->
+        <line x1="0" y1="110" x2="360" y2="110" stroke="#68b0a5" stroke-width="2" stroke-dasharray="3,2"/>
+        <!-- 水中グラデーション -->
+        <rect x="0" y="110" width="360" height="110" fill="#142c2b" opacity="0.9"/>
+        <!-- 水草 -->
+        <path d="M70,220 Q60,160 80,120 M260,220 Q280,150 270,120" stroke="#1d5939" stroke-width="5" fill="none"/>
+        <!-- ① 水底・泥地 -->
+        <rect x="0" y="220" width="360" height="40" fill="#14110d"/>
+        <!-- アクター描画グループ -->
+        <g id="svg-actors"></g>
+      </svg>
     </div>
 
-    <!-- 行動 -->
+    <!-- プレイヤーステータス -->
     <div class="panel">
-      <label style="font-size:12px;">移動先エリア:</label>
-      <select id="move-sel">
-        <option value="0">① 水底・泥地</option>
-        <option value="1" selected>② 水中(水草)</option>
-        <option value="2">③ 水面・浅瀬</option>
-        <option value="3">④ 水際・湿地</option>
-        <option value="4">⑤ 草むら・陸地</option>
-      </select>
+      <div style="display:flex; justify-content:space-between; font-size:12px;">
+        <strong id="my-stage" style="color:var(--accent-color);">第1段階: オタマ</strong>
+        <span>残機(卵): <span id="my-eggs">🥚🥚</span></span>
+      </div>
+      <div style="font-size:11px; margin-top:2px;">
+        体長: <span id="my-len">1.0</span>cm / 体重: <span id="my-wt">0.5</span>g / 子孫(卵): <span id="my-offspring">0</span>個
+      </div>
+      <div class="status-grid">
+        <div class="bar-box">HP <strong id="val-hp" style="color:#e66;">100</strong></div>
+        <div class="bar-box">満腹 <strong id="val-food" style="color:#ea6;">100</strong></div>
+        <div class="bar-box">水分 <strong id="val-water" style="color:#6cf;">100</strong></div>
+        <div class="bar-box">気力 <strong id="val-sta" style="color:#6e6;">100</strong></div>
+      </div>
+    </div>
+
+    <!-- イベントカード -->
+    <div class="event-card" id="event-card-box">
+      <div class="event-title" id="ev-title">【イベント発生】</div>
+      <div class="event-desc" id="ev-desc">内容を読み込み中...</div>
+      <select id="ev-choice-sel"></select>
+    </div>
+
+    <!-- 通常行動選択 -->
+    <div class="panel">
+      <div style="display:flex; gap:6px;">
+        <div style="flex:1;">
+          <label style="font-size:11px;">移動先エリア:</label>
+          <select id="move-sel"></select>
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:11px;">アクション:</label>
+          <select id="act-sel">
+            <option value="feed">捕食(近くの獲物)</option>
+            <option value="rest">休む・隠れる</option>
+            <option value="mate">求愛・繁殖(成体のみ)</option>
+          </select>
+        </div>
+      </div>
       <button class="primary" id="submit-btn" onclick="sendAction()">この行動で確定する ✔</button>
+      <button class="secondary" style="margin-top:6px;" onclick="copyInviteUrl()">🔗 招待URLをコピーしてLINE等で呼ぶ</button>
+    </div>
+
+    <!-- プレイヤー進行状況 ＆ ログ -->
+    <div class="panel">
+      <div style="font-size:11px; color:#aaa;">参加プレイヤー状態:</div>
+      <div class="player-list" id="player-list"></div>
+      <div style="font-weight:bold; margin-top:6px; font-size:11px;">生態系ログ:</div>
+      <div id="log-box"></div>
     </div>
   </div>
+
+  <!-- ================= 画面3：リザルト（生涯年表） ================= -->
+  <div id="result-screen" class="panel">
+    <h2 style="color:#f0c040; text-align:center; margin:0 0 6px 0;">🏆 生態系サバイバル結果</h2>
+    <div id="ranking-box"></div>
+    <div style="font-weight:bold; margin-top:12px; font-size:12px; color:var(--accent-color);">【あなたのカエルの短い一生】</div>
+    <div class="history-box" id="my-history-box"></div>
+    <button class="primary" style="margin-top:10px;" onclick="location.reload()">もう一度池に入る ➔</button>
+  </div>
+
 </div>
 
 <script>
 let ws = null;
 let currentRoomId = null;
-let myPlayerId = null;
+let myActorId = null;
+let lastState = null;
+
+const STAGE_NAMES = ["", "オタマ", "後足", "前足", "変態期", "子ガエル", "成体"];
+const ZONE_NAMES = ["① 水底・泥地", "② 水中(水草)", "③ 水面・浅瀬", "④ 水際・湿地", "⑤ 草むら・陸地"];
 
 window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
-  const roomIdFromUrl = params.get("room");
-  if (roomIdFromUrl) {
-    document.getElementById("room-input").value = roomIdFromUrl;
-  }
+  const r = params.get("room");
+  if (r) document.getElementById("room-input").value = r;
 });
 
 function createRoom() {
-  const randomRoomId = Math.floor(1000 + Math.random() * 9000).toString();
-  joinRoom(randomRoomId);
+  const r = Math.floor(1000 + Math.random() * 9000).toString();
+  joinRoom(r);
 }
 
 function joinRoomByInput() {
-  const roomId = document.getElementById("room-input").value.trim();
-  if (!roomId) { alert("合言葉を入力してください"); return; }
-  joinRoom(roomId);
+  const r = document.getElementById("room-input").value.trim();
+  if (!r) { alert("合言葉を入力してください"); return; }
+  joinRoom(r);
 }
 
 function joinRoom(roomId) {
   currentRoomId = roomId;
-  const myName = document.getElementById("user-name").value.trim() || "カエル";
+  const name = document.getElementById("user-name").value.trim() || "カエル";
 
   document.getElementById("lobby-screen").style.display = "none";
   document.getElementById("game-screen").style.display = "block";
-  document.getElementById("room-display").innerText = `池: #${roomId}`;
+  document.getElementById("room-txt").innerText = `池: #${roomId}`;
   window.history.pushState({}, "", `?room=${roomId}`);
 
-  // 自動でWebSocket接続（Render用：httpsならwss、httpならws）
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   ws = new WebSocket(`${protocol}//${window.location.host}`);
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ type: "JOIN_ROOM", roomId: roomId, name: myName }));
+    ws.send(JSON.stringify({ type: "JOIN_ROOM", roomId: roomId, name: name }));
   };
 
   ws.onmessage = (e) => {
     const data = JSON.parse(e.data);
     if (data.type === "INIT") {
-      myPlayerId = data.myId;
+      myActorId = data.myId;
     } else if (data.type === "STATE_UPDATE") {
+      lastState = data.state;
       render(data.state);
     }
   };
 }
 
 function copyInviteUrl() {
-  const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoomId}`;
-  navigator.clipboard.writeText(inviteUrl).then(() => {
-    alert(`招待URLをコピーしました！\nLINE等で友達に送れます：\n${inviteUrl}`);
-  }).catch(() => { alert(`招待URL: ${inviteUrl}`); });
+  const url = `${window.location.origin}${window.location.pathname}?room=${currentRoomId}`;
+  navigator.clipboard.writeText(url).then(() => {
+    alert(`招待URLをコピーしました！LINE等で送れます：\n${url}`);
+  }).catch(() => alert(url));
 }
 
 function render(state) {
-  document.getElementById("turn-txt").innerText = `TURN ${state.turn}`;
-  document.getElementById("timer-txt").innerText = `${state.timeLeft}秒`;
-  document.getElementById("event-txt").innerText = state.event;
+  // 終了画面
+  if (state.isFinished && state.ranking) {
+    document.getElementById("game-screen").style.display = "none";
+    document.getElementById("result-screen").style.display = "block";
+    renderResult(state);
+    return;
+  }
 
+  // 時間・環境ヘッダー
+  const times = ["朝", "昼", "夕", "深夜"];
+  const tName = times[(state.turn - 1) % 4];
+  const dName = Math.floor((state.turn - 1) / 4) + 1;
+  document.getElementById("turn-txt").innerText = `TURN ${state.turn} (${tName} / ${dName}日目)`;
+  document.getElementById("timer-txt").innerText = `${state.timeLeft}秒`;
+  document.getElementById("weather-txt").innerText = `${state.weather === "雨" ? "🌧️ 雨" : "☀️ 快晴"} (次T: ${state.forecast})`;
+
+  const aliveList = Object.values(state.actors).filter(a => a.alive);
+  document.getElementById("alive-txt").innerText = `生存: ${aliveList.length}/25匹`;
+
+  // 天敵アラート
+  const alertEl = document.getElementById("alert-txt");
+  if (state.nextPredator === "yago") alertEl.innerText = "⚠ 予兆: 水底の泥が巻き上がっている……！(ヤゴ接近)";
+  else if (state.nextPredator === "heron") alertEl.innerText = "⚠ 予兆: 上空を大きな鳥の影が横切った！(サギ警戒)";
+  else if (state.nextPredator === "snake") alertEl.innerText = "⚠ 予兆: 草むらからカサカサと不穏な音が近づく！(ヘビ接近)";
+  else alertEl.innerText = "気配: 周囲に目立った危険はない。";
+
+  // 自ステータス
+  const me = state.actors[myActorId];
+  if (me) {
+    document.getElementById("my-stage").innerText = `第${me.stage}段階: ${STAGE_NAMES[me.stage]} (${me.personality})`;
+    document.getElementById("my-eggs").innerText = "🥚".repeat(me.eggs) || "なし(永久死亡)";
+    document.getElementById("my-len").innerText = me.length.toFixed(1);
+    document.getElementById("my-wt").innerText = me.weight.toFixed(1);
+    document.getElementById("my-offspring").innerText = me.offspringCount;
+
+    document.getElementById("val-hp").innerText = Math.round(me.hp);
+    document.getElementById("val-food").innerText = Math.round(me.food);
+    document.getElementById("val-water").innerText = Math.round(me.water);
+    document.getElementById("val-sta").innerText = Math.round(me.stamina);
+
+    updateMoveSelect(me.stage, me.zone);
+
+    const btn = document.getElementById("submit-btn");
+    if (!me.alive) {
+      btn.disabled = true;
+      btn.innerText = "💀 死亡退場（観戦中...）";
+    } else if (me.ready) {
+      btn.disabled = true;
+      btn.innerText = "他のカエルを待機中...";
+    } else {
+      btn.disabled = false;
+      btn.innerText = "この行動で確定する ✔";
+    }
+  }
+
+  // 2D断面図アクター描画
+  renderSvgActors(state);
+
+  // イベントカード
+  renderEventCard(state, me);
+
+  // プレイヤーインジケーター
   const pListEl = document.getElementById("player-list");
   pListEl.innerHTML = "";
-  for (const pid in state.players) {
-    const p = state.players[pid];
-    const isMe = (pid === myPlayerId);
+  for (const act of Object.values(state.actors).filter(a => a.isPlayer)) {
+    const isMe = (act.id === myActorId);
     const badge = document.createElement("div");
-    badge.className = `p-badge ${p.ready ? 'p-ready' : ''}`;
-    badge.innerText = `${isMe ? '🐸あなた' : p.name} [${p.ready ? '✔ 確定' : '💭 選択中'}]`;
+    badge.className = `p-badge ${act.ready ? 'p-ready' : ''}`;
+    badge.innerText = `${isMe ? '🐸あなた' : act.name} [${!act.alive ? '💀' : (act.ready ? '✔' : '💭')}]`;
     pListEl.appendChild(badge);
   }
 
-  for (let z = 0; z < 5; z++) document.getElementById(`z-${z}`).innerHTML = "";
-  for (const pid in state.players) {
-    const p = state.players[pid];
-    const isMe = (pid === myPlayerId);
-    const el = document.getElementById(`z-${p.zone}`);
-    if (el) el.innerHTML += `<span class="frog-icon ${isMe ? 'my-frog' : ''}">🐸 ${isMe ? 'あなた' : p.name}</span>`;
+  // ログ更新
+  if (state.logs && state.logs.length > 0) {
+    const box = document.getElementById("log-box");
+    state.logs.forEach(l => {
+      const p = document.createElement("div");
+      p.innerText = l;
+      box.prepend(p);
+    });
   }
+}
 
-  const myData = state.players[myPlayerId];
-  const btn = document.getElementById("submit-btn");
-  if (myData && myData.ready) {
-    btn.disabled = true;
-    btn.innerText = "他のカエルを待機中...";
-  } else {
-    btn.disabled = false;
-    btn.innerText = "この行動で確定する ✔";
+function updateMoveSelect(stage, currentZone) {
+  const sel = document.getElementById("move-sel");
+  sel.innerHTML = "";
+  [currentZone - 1, currentZone, currentZone + 1].forEach(z => {
+    if (z >= 0 && z < 5) {
+      const opt = document.createElement("option");
+      opt.value = z;
+      const minStage = [1, 1, 3, 4, 5][z];
+      const disabled = stage < minStage;
+      opt.innerText = (z === currentZone ? "【現在地】" : "➔ ") + ZONE_NAMES[z] + (disabled ? " (成長不足)" : "");
+      opt.disabled = disabled;
+      if (z === currentZone) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  });
+}
+
+function renderSvgActors(state) {
+  const g = document.getElementById("svg-actors");
+  g.innerHTML = "";
+  const zoneY = [235, 175, 110, 95, 45]; // 各ゾーンのY座標
+
+  // ゾーンごとに匹数を集計して横に並べる
+  const zoneCounts = [0, 0, 0, 0, 0];
+  for (const a of Object.values(state.actors).filter(act => act.alive)) {
+    const z = a.zone;
+    const x = 30 + (zoneCounts[z] % 9) * 35;
+    const y = zoneY[z] + Math.floor(zoneCounts[z] / 9) * 14;
+    zoneCounts[z]++;
+
+    const isMe = (a.id === myActorId);
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", x);
+    circle.setAttribute("cy", y);
+    circle.setAttribute("r", a.stage >= 5 ? "8" : (a.stage >= 3 ? "6" : "4"));
+    circle.setAttribute("fill", isMe ? "#77dd77" : (a.isPlayer ? "#55aacc" : "#556655"));
+    if (isMe) {
+      circle.setAttribute("stroke", "#fff");
+      circle.setAttribute("stroke-width", "2");
+    }
+    g.appendChild(circle);
   }
+}
+
+function renderEventCard(state, me) {
+  const ev = state.event;
+  const sel = document.getElementById("ev-choice-sel");
+  if (!ev) {
+    document.getElementById("event-card-box").style.display = "none";
+    return;
+  }
+  document.getElementById("event-card-box").style.display = "block";
+  document.getElementById("ev-title").innerText = ev.title;
+  document.getElementById("ev-desc").innerText = ev.desc;
+
+  sel.innerHTML = "";
+  ev.choices.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.innerText = c.text;
+    sel.appendChild(opt);
+  });
 }
 
 function sendAction() {
   const moveZone = parseInt(document.getElementById("move-sel").value);
+  const act = document.getElementById("act-sel").value;
+  const evChoice = document.getElementById("ev-choice-sel").value;
+
   ws.send(JSON.stringify({
     type: "SUBMIT_ACTION",
-    action: { moveZone: moveZone, act: "feed" }
+    action: { moveZone: moveZone, act: act },
+    eventChoice: evChoice
   }));
+}
+
+function renderResult(state) {
+  const box = document.getElementById("ranking-box");
+  box.innerHTML = "";
+  state.ranking.forEach((r, idx) => {
+    box.innerHTML += `
+      <div class="rank-row">
+        <span><strong>${idx + 1}位</strong> ${r.name} (${r.alive ? '生存' : '死亡'})</span>
+        <span>卵: ${r.offspring}個 / <strong>${r.score}pt</strong></span>
+      </div>
+    `;
+  });
+
+  const meRank = state.ranking.find(r => r.id === myActorId);
+  if (meRank && meRank.history) {
+    const hBox = document.getElementById("my-history-box");
+    hBox.innerHTML = meRank.history.map(h => `・${h}`).join("<br>");
+  }
 }
 </script>
 
