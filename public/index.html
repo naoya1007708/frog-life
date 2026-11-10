@@ -498,6 +498,12 @@ function joinRoom(roomId) {
     const data = JSON.parse(e.data);
     if (data.type === "INIT") {
       myActorId = data.myId;
+    } else if (data.type === "ERROR") {
+      alert(data.message || "参加できませんでした。");
+      document.getElementById("lobby-join-area").style.display = "block";
+      document.getElementById("lobby-wait-area").style.display = "none";
+      if (ws) ws.close();
+      return;
     } else if (data.type === "STATE_UPDATE") {
       lastState = data.state;
       handleStateUpdate(data.state);
@@ -717,4 +723,189 @@ function renderMinimap(state, myCurrentZone) {
   const me = state.actors[myActorId];
 
   for (let z = 0; z < 5; z++) {
-    const zoneBox = document.getElementById(`mm-z-${z}`);
+    const zoneBox = document.getElementById(`mm-z-${z}`);    const actorsEl = document.getElementById(`mm-actors-${z}`);
+    if (!zoneBox || !actorsEl) continue;
+    zoneBox.classList.toggle("active-zone", z === myCurrentZone);
+    actorsEl.innerHTML = "";
+    Object.values(state.actors).filter(a => a.alive && a.zone === z).forEach(actor => {
+      const dot = document.createElement("span");
+      dot.className = `actor-dot ${actor.id === myActorId ? "dot-me" : actor.isPlayer ? "dot-pl" : "dot-npc"}`;
+      if (actor.id !== myActorId && me && me.affinity && (me.affinity[actor.id] || 0) >= 40) dot.classList.add("high-affinity");
+      dot.textContent = actor.id === myActorId ? "あなた" : actor.isPlayer ? actor.name.slice(0, 4) : "NPC";
+      dot.title = `${actor.name} / ${actor.gender}`;
+      if (actor.id !== myActorId) dot.addEventListener("click", () => checkAffinityWith(actor.id));
+      actorsEl.appendChild(dot);
+    });
+  }
+}
+
+function renderAreaEventCard(state, me) {
+  const card = document.getElementById("event-card-box");
+  const title = document.getElementById("ev-title");
+  const desc = document.getElementById("ev-desc");
+  const select = document.getElementById("ev-choice-sel");
+  if (!me || !state.eventsByZone) { card.style.display = "none"; return; }
+  const ev = state.eventsByZone[me.zone];
+  if (!ev) { card.style.display = "none"; return; }
+  card.style.display = "block";
+  title.textContent = ev.title || "【エリアイベント】";
+  desc.textContent = ev.desc || "このエリアでは特別な出来事が起こるかもしれない。";
+  const previous = select.value;
+  select.innerHTML = "";
+  (ev.choices || []).forEach(choice => {
+    const option = document.createElement("option");
+    option.value = choice.id;
+    option.textContent = choice.text;
+    select.appendChild(option);
+  });
+  if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  const partnerId = state.pairTargets && state.pairTargets[myActorId];
+  const partnerBadge = document.getElementById("ev-partner-badge");
+  const partner = partnerId && state.actors[partnerId];
+  partnerBadge.style.display = partner ? "inline-block" : "none";
+  partnerBadge.textContent = partner ? `相手: ${partner.name}` : "";
+  select.disabled = !me.alive || me.ready || !(ev.choices && ev.choices.length);
+}
+
+function updateMoveSelect(stage, currentZone) {
+  const select = document.getElementById("move-sel");
+  if (!select) return;
+  const minStages = [1, 1, 3, 4, 5];
+  const oldValue = select.value;
+  select.innerHTML = "";
+  ZONE_NAMES.forEach((name, zone) => {
+    const option = document.createElement("option");
+    option.value = String(zone);
+    option.textContent = name;
+    option.disabled = stage < minStages[zone];
+    select.appendChild(option);
+  });
+  select.value = String((oldValue !== "" && !select.options[Number(oldValue)]?.disabled) ? Number(oldValue) : currentZone);
+  if (select.selectedIndex < 0 || select.options[select.selectedIndex].disabled) select.value = String(currentZone);
+}
+
+function onMoveSelectChange() {
+  const zone = Number(document.getElementById("move-sel").value || 1);
+  const preySelect = document.getElementById("feed-target-sel");
+  const old = preySelect.value;
+  preySelect.innerHTML = "";
+  (PREY_MASTER[zone] || []).forEach(prey => {
+    const opt = document.createElement("option");
+    opt.value = prey.id;
+    opt.textContent = `${prey.name}（難易度 ${prey.diff} / 満腹+${prey.food}）`;
+    preySelect.appendChild(opt);
+  });
+  if ([...preySelect.options].some(o => o.value === old)) preySelect.value = old;
+  refreshTargetActors();
+}
+
+function refreshTargetActors() {
+  const action = document.getElementById("act-sel").value;
+  const box = document.getElementById("actor-target-box");
+  const label = document.getElementById("actor-target-label");
+  const select = document.getElementById("actor-target-sel");
+  const needsTarget = ["huddle", "attack", "mate"].includes(action);
+  box.style.display = needsTarget ? "block" : "none";
+  label.textContent = action === "huddle" ? "🤝 寄り添う相手:" : action === "attack" ? "⚔️ 攻撃する相手:" : "💖 求愛する相手:";
+  const old = select.value;
+  select.innerHTML = "";
+  if (!lastState || !lastState.actors) return;
+  const me = lastState.actors[myActorId];
+  const zone = Number(document.getElementById("move-sel").value);
+  Object.values(lastState.actors).filter(a => a.alive && a.id !== myActorId && a.zone === zone && (action !== "mate" || (me && me.stage >= 6 && a.stage >= 6 && a.gender !== me.gender))).forEach(a => {
+    const opt = document.createElement("option"); opt.value = a.id; opt.textContent = `${a.name} (${a.gender}${a.isPlayer ? "・プレイヤー" : "・NPC"})`;
+    select.appendChild(opt);
+  });
+  if ([...select.options].some(o => o.value === old)) select.value = old;
+}
+
+function onActionChange() {
+  const action = document.getElementById("act-sel").value;
+  document.getElementById("feed-target-box").style.display = action === "feed" ? "block" : "none";
+  refreshTargetActors();
+}
+
+function sendAction() {
+  if (!ws || ws.readyState !== WebSocket.OPEN || !lastState) { alert("サーバーに接続されていません。"); return; }
+  const me = lastState.actors && lastState.actors[myActorId];
+  if (!me || !me.alive || me.ready) return;
+  const act = document.getElementById("act-sel").value;
+  const moveZone = Number(document.getElementById("move-sel").value);
+  const action = { moveZone, act };
+  if (act === "feed") action.targetPreyId = document.getElementById("feed-target-sel").value;
+  if (["huddle", "attack", "mate"].includes(act)) {
+    action.targetId = document.getElementById("actor-target-sel").value || null;
+    if (!action.targetId) { alert("対象のカエルがこのエリアにいません。"); return; }
+  }
+  ws.send(JSON.stringify({ type: "SUBMIT_ACTION", action, eventChoice: document.getElementById("ev-choice-sel").value || null }));
+}
+
+function renderResult(state) {
+  const rankingBox = document.getElementById("ranking-box");
+  rankingBox.innerHTML = "";
+  (state.ranking || []).forEach((entry, index) => {
+    const row = document.createElement("div");
+    row.className = "rank-row";
+    row.innerHTML = `<span>${index + 1}位 ${entry.isPlayer ? "🐸" : ""}${escapeHtml(entry.name)} ${entry.alive ? "（生存）" : "（死亡）"}</span><strong>${entry.score} pt</strong>`;
+    rankingBox.appendChild(row);
+  });
+  const mine = (state.ranking || []).find(a => a.id === myActorId);
+  document.getElementById("my-history-box").textContent = mine && mine.history ? mine.history.join("\n") : "記録がありません。";
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function updateAnim() {
+  blinkTimer = (blinkTimer + 1) % 180;
+  if (heronAttackY > -50) heronAttackY = Math.min(-50, heronAttackY - 3);
+  if (yagoJawX < -20) yagoJawX += 1;
+  raindrops.forEach(d => { d.y += d.v; if (d.y > 155) { d.y = -5; d.x = Math.random() * 130; } });
+}
+
+function renderScene(ctx) {
+  if (!ctx) return;
+  const w = 130, h = 150;
+  ctx.clearRect(0, 0, w, h);
+  const weather = lastState ? lastState.weather : "快晴";
+  const me = lastState && lastState.actors ? lastState.actors[myActorId] : null;
+  const zone = me ? me.zone : 1;
+  const skies = ["#142b36", "#244b55", "#527b69", "#6c9b72", "#315b36"];
+  ctx.fillStyle = skies[zone] || skies[1]; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "rgba(15,45,35,.45)"; ctx.fillRect(0, 90, w, 60);
+  // 水草・岸辺
+  ctx.strokeStyle = "#397b4c"; ctx.lineWidth = 2;
+  for (let i = 0; i < 7; i++) { const x = i * 21 + 5; ctx.beginPath(); ctx.moveTo(x, 150); ctx.quadraticCurveTo(x - 7, 120 - (i % 3) * 8, x + 2, 95); ctx.stroke(); }
+  ctx.fillStyle = "rgba(180,220,190,.25)";
+  bubbles.forEach(b => { ctx.beginPath(); ctx.arc(b.x, (b.y + tick * 0.25) % 150, 2 * b.s, 0, Math.PI * 2); ctx.fill(); });
+  if (weather === "雨") { ctx.strokeStyle = "rgba(180,220,255,.55)"; ctx.lineWidth = 1; raindrops.forEach(d => { ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - 2, d.y + 5); ctx.stroke(); }); }
+  if (me) drawFrog(ctx, me, 65, zone >= 3 ? 105 : 118);
+  if (heronAttackY > -50) { ctx.fillStyle = "#b9b8a2"; ctx.beginPath(); ctx.moveTo(95, heronAttackY); ctx.lineTo(115, heronAttackY + 8); ctx.lineTo(105, heronAttackY + 15); ctx.fill(); }
+  if (lastState && lastState.activePredatorAnimation === "yago") { ctx.fillStyle = "#a58a42"; ctx.fillRect(8, 132, 28, 7); ctx.fillStyle = "#d8bd65"; ctx.fillRect(28 + yagoJawX, 129, 12, 4); }
+  ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fillRect(3, 3, 65, 12); ctx.fillStyle = "#e2f3df"; ctx.font = "7px monospace"; ctx.fillText(ZONE_NAMES[zone].slice(0, 12), 6, 12);
+}
+
+function drawFrog(ctx, actor, x, y) {
+  const palette = FROG_PALETTES[Math.min(4, Math.max(0, actor.stage - 1))] || FROG_PALETTES[4];
+  const scale = Math.max(0.65, Math.min(1.5, 0.75 + (actor.length || 1) * 0.04));
+  ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
+  if (actor.stage <= 2) {
+    ctx.fillStyle = palette.body; ctx.beginPath(); ctx.ellipse(0, 0, 16, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = palette.dark; ctx.beginPath(); ctx.moveTo(-12, 1); ctx.lineTo(-29, -5); ctx.lineTo(-17, 6); ctx.fill();
+  } else {
+    ctx.fillStyle = palette.body; ctx.beginPath(); ctx.ellipse(0, 0, 13, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-7, -8, 5, 0, Math.PI * 2); ctx.arc(7, -8, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = palette.eye; ctx.fillRect(-9, -10, 3, 3); ctx.fillRect(5, -10, 3, 3);
+    ctx.strokeStyle = palette.dark; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, 5); ctx.lineTo(-15, 12); ctx.moveTo(8, 5); ctx.lineTo(15, 12); ctx.stroke();
+  }
+  ctx.fillStyle = palette.belly; ctx.beginPath(); ctx.ellipse(0, 4, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+// 初期状態でも行動選択UIを準備しておく
+onMoveSelectChange();
+onActionChange();
+</script>
+</body>
+</html>
