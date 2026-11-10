@@ -12,6 +12,7 @@
     --text-color: #d2e8d4;
     --accent: #5cd65c;
     --accent-gold: #f0c040;
+    --accent-pink: #ff66cc; /* 親密度ピンク */
     --danger: #ff5555;
   }
   body {
@@ -23,7 +24,7 @@
   .panel { background: var(--panel-bg); border: 2px solid var(--border-color); padding: 10px; border-radius: 6px; }
 
   button {
-    width: 100%; padding: 11px; border: none; border-radius: 4px; font-size: 13px; font-weight: bold;
+    width: 100%; padding: 10px; border: none; border-radius: 4px; font-size: 12px; font-weight: bold;
     font-family: inherit; cursor: pointer; transition: 0.1s;
   }
   button:active { transform: scale(0.98); }
@@ -32,11 +33,10 @@
   button:disabled { background: #1c261e; color: #667768; border-color: #2a382c; cursor: not-allowed; }
 
   select, input {
-    width: 100%; padding: 10px; background: #0c140d; border: 1px solid var(--border-color);
-    border-radius: 4px; font-family: inherit; font-size: 13px; color: #fff; box-sizing: border-box; margin-top: 4px;
+    width: 100%; padding: 9px; background: #0c140d; border: 1px solid var(--border-color);
+    border-radius: 4px; font-family: inherit; font-size: 12px; color: #fff; box-sizing: border-box; margin-top: 3px;
   }
 
-  /* 画面切り替え */
   #game-screen, #result-screen { display: none; }
 
   /* 待機ロビー */
@@ -50,62 +50,86 @@
     display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 4px;
   }
 
-  /* ★ レトロゲーム機風ピクセルスクリーン */
+  /* 左：自分画面 ＋ 右：全体図 */
+  .view-container { display: flex; gap: 6px; width: 100%; height: 240px; }
   .screen-frame {
-    width: 100%; height: 260px; background: #000; border-radius: 6px; overflow: hidden;
-    border: 3px solid #233626; box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.6);
-    position: relative;
+    flex: 1.8; background: #000; border-radius: 6px; overflow: hidden;
+    border: 2px solid #233626; position: relative;
   }
-  canvas#retroCanvas {
-    width: 100%; height: 100%; display: block;
-    image-rendering: pixelated;
-    image-rendering: -moz-crisp-edges;
-    image-rendering: crisp-edges;
+  canvas#retroCanvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+  .minimap-panel {
+    flex: 1.2; background: #0d170e; border: 2px solid var(--border-color);
+    border-radius: 6px; padding: 4px; display: flex; flex-direction: column; justify-content: space-between;
+    box-sizing: border-box; font-size: 10px;
+  }
+  .minimap-zone {
+    border-radius: 3px; padding: 2px 4px; border: 1px solid #1f3022;
+    background: #142115; min-height: 38px; display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .minimap-zone.active-zone {
+    border-color: var(--accent); background: #1a331c; box-shadow: inset 0 0 6px rgba(92,214,92,0.3);
+  }
+  .minimap-zone-title { font-weight: bold; font-size: 9px; color: #88bb88; }
+  .minimap-actors { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 1px; }
+
+  /* アクターバッジと親密度ピンク枠 */
+  .actor-dot {
+    font-size: 9px; padding: 1px 4px; border-radius: 2px; cursor: pointer;
+  }
+  .dot-me { background: #2f7a35; color: #fff; font-weight: bold; border: 1px solid #77dd77; }
+  .dot-pl { background: #1e455c; color: #aaddff; border: 1px solid #4da6ff; }
+  .dot-npc { background: #222; color: #888; border: 1px solid #444; }
+  /* ★親密度が高いカエル（ピンク枠！） */
+  .high-affinity {
+    border: 2px solid var(--accent-pink) !important;
+    color: #ffb3e6 !important;
+    font-weight: bold;
+    box-shadow: 0 0 5px rgba(255, 102, 204, 0.5);
   }
 
-  /* ステータスバー */
   .status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 4px; }
   .bar-box { background: #0a110c; border: 1px solid #223624; border-radius: 3px; padding: 3px; font-size: 10px; text-align: center; }
 
-  /* イベントカード */
-  .event-card {
-    background: #1c2b1e; border-left: 3px solid var(--accent-gold); padding: 8px; border-radius: 0 4px 4px 0; font-size: 11px;
-  }
+  .event-card { background: #1c2b1e; border-left: 3px solid var(--accent-gold); padding: 8px; border-radius: 0 4px 4px 0; font-size: 11px; }
 
-  /* プレイヤーリスト */
   .player-list { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
-  .p-badge { padding: 2px 6px; border-radius: 3px; font-size: 10px; background: #263628; border: 1px solid #445c47; }
+  .p-badge { padding: 2px 6px; border-radius: 3px; font-size: 10px; background: #263628; border: 1px solid #445c47; cursor: pointer; }
   .p-ready { border-color: #88cc88; background: #28542c; color: #aaffaa; }
 
-  /* ログ */
   #log-box { height: 80px; overflow-y: scroll; font-size: 10px; line-height: 1.4; background: #0a110c; padding: 6px; border-radius: 4px; margin-top: 4px; }
 
-  /* ================= 誕生・特徴ポップアップモーダル ================= */
-  #trait-modal {
-    display: none; position: absolute; left: 0; top: 0; width: 100%; height: 100%;
-    background: rgba(5, 10, 6, 0.94); z-index: 100;
-    flex-direction: column; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box;
-    backdrop-filter: blur(4px);
+  /* モーダル */
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(3, 7, 4, 0.95); z-index: 9999; justify-content: center; align-items: center;
+    padding: 16px; box-sizing: border-box; overflow-y: auto;
   }
-  .trait-card {
+  .modal-card {
     background: #18291c; border: 2px solid var(--accent); border-radius: 8px;
-    padding: 16px; width: 100%; max-width: 380px; box-sizing: border-box; text-align: center;
+    padding: 18px 16px; width: 100%; max-width: 380px; box-sizing: border-box; text-align: center;
+    box-shadow: 0 0 30px rgba(92, 214, 92, 0.3); margin: auto;
   }
   .trait-badge-large {
     display: inline-block; background: #233b28; border: 2px solid var(--accent-gold);
     color: var(--accent-gold); font-size: 17px; font-weight: bold; padding: 6px 16px;
-    border-radius: 6px; letter-spacing: 2px; margin: 10px 0;
+    border-radius: 6px; letter-spacing: 2px; margin: 8px 0;
   }
-  .trait-effect-box {
+  .gender-badge {
+    display: inline-block; font-size: 13px; font-weight: bold; padding: 3px 10px; border-radius: 4px; margin-top: 4px;
+  }
+  .gender-male { background: #19405c; color: #7ec5f5; border: 1px solid #4ea3dd; }
+  .gender-female { background: #5c1938; color: #f57eb8; border: 1px solid #dd4e97; }
+
+  .effect-box {
     background: #0d170f; border: 1px solid #29402c; border-radius: 6px;
-    padding: 10px; text-align: left; font-size: 11px; line-height: 1.7; margin-bottom: 12px;
+    padding: 10px; text-align: left; font-size: 11px; line-height: 1.7; margin: 10px 0;
   }
   .plus-text { color: #88ff88; font-weight: bold; }
   .minus-text { color: #ff8888; font-weight: bold; }
 
-  /* リザルト画面 */
   .rank-row { display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #2e4531; font-size: 11px; }
-  .history-box { background: #0d170f; padding: 8px; font-size: 11px; line-height: 1.5; border-radius: 4px; max-height: 160px; overflow-y: scroll; margin-top: 6px; }
+  .history-box { background: #0d170f; padding: 8px; font-size: 11px; line-height: 1.5; border-radius: 4px; max-height: 150px; overflow-y: scroll; margin-top: 6px; text-align: left; }
 </style>
 </head>
 <body>
@@ -119,7 +143,6 @@
       <div style="font-size:11px; color:#aaa; margin-bottom:10px;">ターン制 生態系サバイバル（全35ターン）</div>
     </div>
 
-    <!-- 入室前 -->
     <div id="lobby-join-area">
       <label style="font-size:11px;">あなたの名前:</label>
       <input type="text" id="user-name" value="アマガエル" maxlength="8">
@@ -132,7 +155,6 @@
       </div>
     </div>
 
-    <!-- 入室後（待機ロビー） -->
     <div id="lobby-wait-area" style="display:none; text-align:center;">
       <div class="room-tag" id="wait-room-tag">ROOM #----</div>
       <div style="font-size:11px; color:#aaa; margin-bottom:8px;">全員が集まるまで待機しています</div>
@@ -146,7 +168,6 @@
         ※不足枠は自動で兄弟NPCが加わり、計25匹でスタートします。
       </div>
 
-      <!-- ホストのみに表示されるスタートボタン -->
       <button class="primary" id="host-start-btn" onclick="requestStartGame()" style="display:none;">
         卵から孵化して池へ広がる！（ゲーム開始）
       </button>
@@ -157,18 +178,22 @@
   </div>
 
 
-  <!-- ================= 画面1.5：誕生・特徴モーダル ================= -->
-  <div id="trait-modal">
-    <div class="trait-card">
+  <!-- ================= 画面1.5：誕生・性別・特徴モーダル ================= -->
+  <div id="trait-modal" class="modal-overlay">
+    <div class="modal-card">
       <div style="font-size:11px; color:#aaa;">🥚 命の誕生</div>
       <div style="font-size:15px; font-weight:bold; color:#fff; margin-top:2px;">
         あなたは卵から孵化した！
       </div>
 
+      <div style="margin-top:8px;">
+        <span class="gender-badge" id="modal-gender-badge">性別: ♂ オス</span>
+      </div>
+
       <div style="font-size:11px; color:#88a88c; margin-top:8px;">あなたの生まれ持った特徴:</div>
       <div class="trait-badge-large" id="modal-trait-name">【頑強】</div>
 
-      <div class="trait-effect-box">
+      <div class="effect-box">
         <div><span class="plus-text">✚ 長所:</span> <span id="modal-trait-plus">---</span></div>
         <div style="margin-top:4px;"><span class="minus-text">▲ 短所:</span> <span id="modal-trait-minus">---</span></div>
         <div style="margin-top:6px; border-top:1px dashed #29402c; padding-top:4px; color:#bbb;">
@@ -183,9 +208,35 @@
   </div>
 
 
+  <!-- ================= 詳細ステータス確認モーダル ================= -->
+  <div id="status-detail-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div style="font-size:14px; font-weight:bold; color:var(--accent);">📊 個体詳細ステータス・生体記録</div>
+      
+      <div style="margin-top:8px; display:flex; justify-content:center; gap:8px;">
+        <span class="gender-badge" id="det-gender">♂ オス</span>
+        <span class="trait-badge-large" style="margin:0; font-size:12px; padding:3px 8px;" id="det-trait">【頑強】</span>
+      </div>
+
+      <div class="effect-box">
+        <div><strong>体格:</strong> 体長 <span id="det-len">1.0</span>cm / 体重 <span id="det-wt">0.5</span>g</div>
+        <div><strong>繁殖実績:</strong> 残した子孫(卵) <span id="det-offspring">0</span>個</div>
+        <div style="margin-top:4px; border-top:1px dashed #29402c; padding-top:4px;">
+          <div class="plus-text">✚ 特徴長所: <span id="det-trait-plus" style="font-weight:normal; color:#ddd;">---</span></div>
+          <div class="minus-text">▲ 特徴短所: <span id="det-trait-minus" style="font-weight:normal; color:#ddd;">---</span></div>
+        </div>
+      </div>
+
+      <div style="font-size:11px; text-align:left; font-weight:bold; color:var(--accent);">生涯ログ (年表):</div>
+      <div class="history-box" id="det-history-box"></div>
+
+      <button class="secondary" style="margin-top:12px;" onclick="closeStatusDetailModal()">閉じる</button>
+    </div>
+  </div>
+
+
   <!-- ================= 画面2：ゲーム本編 ================= -->
   <div id="game-screen">
-    <!-- ヘッダー -->
     <div class="panel" style="padding:6px 10px;">
       <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px;">
         <span id="txt-room-id" style="color:var(--accent);">池: #----</span>
@@ -201,16 +252,29 @@
       </div>
     </div>
 
-    <!-- 2Dドット絵キャンバススクリーン -->
-    <div class="screen-frame">
-      <canvas id="retroCanvas" width="200" height="150"></canvas>
+    <!-- 左：自分の画面 ＋ 右：全体図 -->
+    <div class="view-container">
+      <div class="screen-frame">
+        <canvas id="retroCanvas" width="130" height="150"></canvas>
+      </div>
+
+      <div class="minimap-panel" id="minimap-box">
+        <div class="minimap-zone" id="mm-z-4"><div class="minimap-zone-title">⑤ 草むら</div><div class="minimap-actors" id="mm-actors-4"></div></div>
+        <div class="minimap-zone" id="mm-z-3"><div class="minimap-zone-title">④ 水際(倒木)</div><div class="minimap-actors" id="mm-actors-3"></div></div>
+        <div class="minimap-zone" id="mm-z-2"><div class="minimap-zone-title">③ 水面・浅瀬</div><div class="minimap-actors" id="mm-actors-2"></div></div>
+        <div class="minimap-zone" id="mm-z-1"><div class="minimap-zone-title">② 水中(水草)</div><div class="minimap-actors" id="mm-actors-1"></div></div>
+        <div class="minimap-zone" id="mm-z-0"><div class="minimap-zone-title">① 水底・泥地</div><div class="minimap-actors" id="mm-actors-0"></div></div>
+      </div>
     </div>
 
     <!-- プレイヤーステータス -->
     <div class="panel">
       <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
-        <strong id="txt-stage-name" style="color:var(--accent);">第1段階: オタマジャクシ</strong>
-        <span id="txt-trait-badge" onclick="showTraitModalAgain()" style="background:#233b28; border:1px solid var(--accent-gold); color:var(--accent-gold); padding:2px 6px; border-radius:3px; font-weight:bold; cursor:pointer;" title="クリックで特徴を再確認">
+        <div>
+          <strong id="txt-stage-name" style="color:var(--accent);">第1段階: オタマジャクシ</strong>
+          <span id="txt-gender-icon" style="font-weight:bold; margin-left:2px;">♂</span>
+        </div>
+        <span id="txt-trait-badge" onclick="showStatusDetailModal()" style="background:#233b28; border:1px solid var(--accent-gold); color:var(--accent-gold); padding:2px 6px; border-radius:3px; font-weight:bold; cursor:pointer;">
           特徴: ---
         </span>
       </div>
@@ -226,38 +290,63 @@
       </div>
     </div>
 
-    <!-- イベントカード -->
+    <!-- ★エリア対応イベントカード -->
     <div class="event-card" id="event-card-box">
-      <strong id="ev-title" style="color:var(--accent-gold);">【イベント】</strong><br>
-      <span id="ev-desc" style="color:#ccc;">読み込み中...</span>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <strong id="ev-title" style="color:var(--accent-gold);">【エリアイベント】</strong>
+        <span id="ev-partner-badge" style="display:none; background:#2f4a33; border:1px solid var(--accent); color:#fff; font-size:10px; padding:1px 6px; border-radius:3px; font-weight:bold;">
+          相手: ---
+        </span>
+      </div>
+      <div id="ev-desc" style="color:#ccc; margin-top:3px;">読み込み中...</div>
       <select id="ev-choice-sel" style="margin-top:6px;"></select>
     </div>
 
-    <!-- 通常行動入力 -->
+    <!-- ★完全復活：行動入力パネル（捕食餌選択・水を飲む・カエル団子・攻撃・見張り・求愛） -->
     <div class="panel">
       <div style="display:flex; gap:6px;">
         <div style="flex:1;">
           <label style="font-size:10px;">移動エリア:</label>
-          <select id="move-sel"></select>
+          <select id="move-sel" onchange="onMoveSelectChange()"></select>
         </div>
         <div style="flex:1;">
           <label style="font-size:10px;">行動:</label>
-          <select id="act-sel">
-            <option value="feed">捕食(近くの獲物)</option>
-            <option value="rest">休む・隠れる</option>
-            <option value="mate">求愛・繁殖(成体のみ)</option>
+          <select id="act-sel" onchange="onActionChange()">
+            <option value="feed" selected>捕食 (獲物を狙う)</option>
+            <option value="water">水を飲む (水分補給)</option>
+            <option value="rest">休む・隠れる (HP/気力)</option>
+            <option value="watch">見張り (警戒・護衛)</option>
+            <option value="huddle">カエル団子 (集団保湿)</option>
+            <option value="attack">攻撃する (小突く/排除)</option>
+            <option value="mate">求愛・繁殖 (成体のみ)</option>
           </select>
         </div>
       </div>
+
+      <!-- ① 捕食選択時：エリアの餌リスト ＆ リアルタイム捕食成功確率(%)表示 -->
+      <div id="feed-target-box" style="margin-top:6px; background:#18261a; padding:6px; border-radius:4px; border:1px dashed var(--accent);">
+        <label style="font-size:10px; color:var(--accent); font-weight:bold;">🦗 狙う獲物を選択 (捕食成功率):</label>
+        <select id="feed-target-sel"></select>
+      </div>
+
+      <!-- ② 相手指名時：カエル団子／攻撃／求愛の相手選択 -->
+      <div id="actor-target-box" style="display:none; margin-top:6px; background:#1c241d; padding:6px; border-radius:4px; border:1px dashed var(--accent-gold);">
+        <label style="font-size:10px; color:var(--accent-gold); font-weight:bold;" id="actor-target-label">🤝 対象のカエルを指名:</label>
+        <select id="actor-target-sel"></select>
+      </div>
+
       <button class="primary" id="submit-btn" style="margin-top:6px;" onclick="sendAction()">この行動で確定する ✔</button>
-      <button class="secondary" style="margin-top:4px;" onclick="copyInviteUrl()">🔗 招待URLをコピー</button>
+
+      <button class="secondary" style="margin-top:4px;" onclick="showStatusDetailModal()">
+        📊 自身の詳細ステータス・生体記録
+      </button>
     </div>
 
     <!-- プレイヤー進行状況 ＆ ログ -->
     <div class="panel">
-      <div style="font-size:10px; color:#aaa;">参加プレイヤー状況:</div>
+      <div style="font-size:10px; color:#aaa;">参加プレイヤー状況 (タップで親密度確認):</div>
       <div class="player-list" id="player-list"></div>
-      <div style="font-weight:bold; margin-top:4px; font-size:10px;">生態系ログ:</div>
+      <div style="font-weight:bold; margin-top:4px; font-size:10px;">プレイヤー行動ログ:</div>
       <div id="log-box"></div>
     </div>
   </div>
@@ -274,7 +363,32 @@
 </div>
 
 <script>
-// ==================== 特徴データベース ====================
+// 餌マスター
+const PREY_MASTER = {
+  0: [
+    { id: "algae", name: "アオミドロ(藻)", diff: 0, food: 18, exp: 6 },
+    { id: "chironomid", name: "ユスリカの幼虫", diff: 10, food: 22, exp: 8 }
+  ],
+  1: [
+    { id: "daphnia", name: "ミジンコ", diff: 5, food: 15, exp: 5 },
+    { id: "wriggler", name: "ボウフラ", diff: 15, food: 25, exp: 9 },
+    { id: "bloodworm", name: "アカムシ", diff: 20, food: 28, exp: 11 }
+  ],
+  2: [
+    { id: "mosquito", name: "落ちた蚊", diff: 25, food: 30, exp: 12 },
+    { id: "strider", name: "アメンボ", diff: 30, food: 32, exp: 14 }
+  ],
+  3: [
+    { id: "woodlouse", name: "ワラジムシ", diff: 35, food: 38, exp: 16 },
+    { id: "fly", name: "小型ハエ", diff: 40, food: 40, exp: 18 }
+  ],
+  4: [
+    { id: "cricket", name: "コオロギ", diff: 50, food: 55, exp: 22 },
+    { id: "grasshopper", name: "大型バッタ", diff: 65, food: 65, exp: 28 },
+    { id: "earthworm", name: "巨大ミミズ (大物)", diff: 85, food: 85, exp: 35 }
+  ]
+};
+
 const TRAITS_DATA = {
   "頑強": {
     name: "【頑強 (保水型)】", badge: "特徴: 頑強",
@@ -308,16 +422,17 @@ const TRAITS_DATA = {
   }
 };
 
-// ==================== グローバル通信ステート ====================
 let ws = null;
 let currentRoomId = null;
 let myActorId = null;
 let lastState = null;
 let hasShownTraitModal = false;
 
+let lastRenderedTurn = -1;
+let lastRenderedEventId = null;
+
 const STAGE_NAMES = ["", "オタマジャクシ", "後足が生えた", "前足が生えた", "変態期(尾あり)", "子ガエル", "成体カエル"];
 const ZONE_NAMES = ["① 泥底・泥地", "② 水中(水草)", "③ 水面・浅瀬", "④ 水際・倒木", "⑤ 草むら・陸地"];
-const ZONE_Y = [135, 105, 75, 58, 38];
 
 const FROG_PALETTES = {
   4: { body: "#48c948", dark: "#207324", belly: "#e0f8e0", eye: "#f0c030" },
@@ -327,22 +442,19 @@ const FROG_PALETTES = {
   0: { body: "#785838", dark: "#422e18", belly: "#c2a88a", eye: "#d09020" }
 };
 
-// ドット絵アニメーション用変数
 let tick = 0;
 let blinkTimer = 0;
 let heronAttackY = -50;
 let yagoJawX = -20;
-const bubbles = [{ x: 30, y: 130, s: 1 }, { x: 70, y: 140, s: 0.8 }, { x: 120, y: 125, s: 1.2 }, { x: 170, y: 135, s: 0.7 }];
+const bubbles = [{ x: 20, y: 130, s: 1 }, { x: 50, y: 140, s: 0.8 }, { x: 90, y: 125, s: 1.2 }, { x: 115, y: 135, s: 0.7 }];
 const raindrops = [];
-for (let i = 0; i < 25; i++) raindrops.push({ x: Math.random() * 200, y: Math.random() * 150, v: 3 + Math.random() * 2 });
+for (let i = 0; i < 20; i++) raindrops.push({ x: Math.random() * 130, y: Math.random() * 150, v: 3 + Math.random() * 2 });
 
-// ==================== 起動・ルーム処理 ====================
 window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   const r = params.get("room");
   if (r) document.getElementById("room-input").value = r;
 
-  // Canvasループ起動
   const canvas = document.getElementById("retroCanvas");
   const ctx = canvas.getContext("2d");
   function loop() {
@@ -406,22 +518,18 @@ function requestStartGame() {
   }
 }
 
-// ==================== 状態更新ハンドラ ====================
 function handleStateUpdate(state) {
-  // 1. ロビー待機画面の更新
   if (state.status === "waiting") {
     renderLobby(state);
     return;
   }
 
-  // 2. プレイ開始時：特徴モーダルを1回だけ表示
   if (state.status === "playing" && !hasShownTraitModal) {
     document.getElementById("lobby-screen").style.display = "none";
     showTraitModal(state);
     hasShownTraitModal = true;
   }
 
-  // 3. ゲーム終了（リザルト）
   if (state.status === "finished" && state.ranking) {
     document.getElementById("game-screen").style.display = "none";
     document.getElementById("result-screen").style.display = "block";
@@ -429,7 +537,6 @@ function handleStateUpdate(state) {
     return;
   }
 
-  // 4. ゲーム本編UIの更新
   renderGameUI(state);
 }
 
@@ -443,7 +550,7 @@ function renderLobby(state) {
     const isHost = (p.id === state.hostId);
     listEl.innerHTML += `
       <div class="member-item">
-        <span>🐸 ${p.name} ${isMe ? '(あなた)' : ''}</span>
+        <span>🐸 ${p.name} (${p.gender}) ${isMe ? '(あなた)' : ''}</span>
         <span style="color:${isHost ? 'var(--accent-gold)' : 'var(--accent)'}; font-weight:bold;">
           ${isHost ? '★ 部屋主(ホスト)' : '参加中'}
         </span>
@@ -461,6 +568,10 @@ function showTraitModal(state) {
   if (!me) return;
   const trait = TRAITS_DATA[me.trait] || TRAITS_DATA["頑強"];
 
+  const gBadge = document.getElementById("modal-gender-badge");
+  gBadge.innerText = me.gender === "♂" ? "性別: ♂ オス (鳴いて求愛を主導)" : "性別: ♀ メス (求愛を受け入れ産卵)";
+  gBadge.className = `gender-badge ${me.gender === "♂" ? "gender-male" : "gender-female"}`;
+
   document.getElementById("modal-trait-name").innerText = trait.name;
   document.getElementById("modal-trait-plus").innerText = trait.plus;
   document.getElementById("modal-trait-minus").innerText = trait.minus;
@@ -475,8 +586,46 @@ function closeTraitModal() {
   document.getElementById("game-screen").style.display = "block";
 }
 
-function showTraitModalAgain() {
-  document.getElementById("trait-modal").style.display = "flex";
+function showStatusDetailModal() {
+  if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
+  const me = lastState.actors[myActorId];
+  const trait = TRAITS_DATA[me.trait] || TRAITS_DATA["頑強"];
+
+  const gBadge = document.getElementById("det-gender");
+  gBadge.innerText = me.gender === "♂" ? "♂ オス" : "♀ メス";
+  gBadge.className = `gender-badge ${me.gender === "♂" ? "gender-male" : "gender-female"}`;
+
+  document.getElementById("det-trait").innerText = trait.name;
+  document.getElementById("det-len").innerText = me.length.toFixed(1);
+  document.getElementById("det-wt").innerText = me.weight.toFixed(1);
+  document.getElementById("det-offspring").innerText = me.offspringCount;
+  document.getElementById("det-trait-plus").innerText = trait.plus;
+  document.getElementById("det-trait-minus").innerText = trait.minus;
+
+  const hBox = document.getElementById("det-history-box");
+  hBox.innerHTML = me.history ? me.history.map(h => `・${h}`).join("<br>") : "記録なし";
+
+  document.getElementById("status-detail-modal").style.display = "flex";
+}
+
+function closeStatusDetailModal() {
+  document.getElementById("status-detail-modal").style.display = "none";
+}
+
+// ★親密度確認ポップアップ
+function checkAffinityWith(targetId) {
+  if (!lastState || !lastState.actors) return;
+  const me = lastState.actors[myActorId];
+  const target = lastState.actors[targetId];
+  if (!me || !target) return;
+
+  const aff = (me.affinity && me.affinity[targetId]) ? me.affinity[targetId] : 0;
+  let statusTxt = "普通";
+  if (aff >= 70) statusTxt = "無二の親友（交配時卵数超特大ボーナス！）";
+  else if (aff >= 40) statusTxt = "親密（信頼関係あり・ピンク枠）";
+  else if (aff <= -20) statusTxt = "険悪・敵対";
+
+  alert(`🐸 【${target.name}】との関係\n\n親密度: ${aff} / 100\n関係性: ${statusTxt}\n\n※ペアイベントでの協力やカエル団子で上昇し、交配時の卵数（スコア）が増加します！`);
 }
 
 function renderGameUI(state) {
@@ -491,20 +640,20 @@ function renderGameUI(state) {
   const aliveList = Object.values(state.actors).filter(a => a.alive);
   document.getElementById("txt-alive").innerText = `生存: ${aliveList.length}/25匹`;
 
-  // 天敵アラート
   const alertEl = document.getElementById("txt-alert");
   if (state.nextPredator === "yago") alertEl.innerText = "⚠ 予兆: 水底の泥が巻き上がっている……！(ヤゴ接近)";
   else if (state.nextPredator === "heron") alertEl.innerText = "⚠ 予兆: 上空を大きな鳥の影が横切った！(サギ警戒)";
   else alertEl.innerText = "気配: 周囲に目立った危険はない。";
 
-  // 天敵アニメーション発動
   if (state.activePredatorAnimation === "heron") heronAttackY = -40;
   if (state.activePredatorAnimation === "yago") yagoJawX = 0;
 
-  // 自ステータス
   const me = state.actors[myActorId];
   if (me) {
     document.getElementById("txt-stage-name").innerText = `第${me.stage}段階: ${STAGE_NAMES[me.stage]}`;
+    document.getElementById("txt-gender-icon").innerText = me.gender;
+    document.getElementById("txt-gender-icon").style.color = me.gender === "♂" ? "#7ec5f5" : "#f57eb8";
+
     document.getElementById("txt-eggs").innerText = me.stage < 4 ? "🥚".repeat(me.eggs) || "なし" : "なし (永久死亡)";
     document.getElementById("txt-offspring").innerText = me.offspringCount;
 
@@ -513,7 +662,10 @@ function renderGameUI(state) {
     document.getElementById("val-water").innerText = Math.round(me.water);
     document.getElementById("val-sta").innerText = Math.round(me.stamina);
 
-    updateMoveSelect(me.stage, me.zone);
+    if (lastRenderedTurn !== state.turn) {
+      updateMoveSelect(me.stage, me.zone);
+      onMoveSelectChange(); // 獲物リスト初期化
+    }
 
     const btn = document.getElementById("submit-btn");
     if (!me.alive) {
@@ -526,23 +678,30 @@ function renderGameUI(state) {
       btn.disabled = false;
       btn.innerText = "この行動で確定する ✔";
     }
+
+    renderMinimap(state, me.zone);
   }
 
-  // イベントカード
-  renderEventCard(state);
+  // エリア対応イベントカードの描画
+  renderAreaEventCard(state, me);
 
-  // プレイヤーインジケーター
+  lastRenderedTurn = state.turn;
+
+  // プレイヤーリスト（親密度ピンク枠対応）
   const pListEl = document.getElementById("player-list");
   pListEl.innerHTML = "";
   for (const act of Object.values(state.actors).filter(a => a.isPlayer)) {
     const isMe = (act.id === myActorId);
+    const aff = (me && me.affinity && me.affinity[act.id]) ? me.affinity[act.id] : 0;
+    const isPink = (!isMe && aff >= 40);
+
     const badge = document.createElement("div");
-    badge.className = `p-badge ${act.ready ? 'p-ready' : ''}`;
-    badge.innerText = `${isMe ? '🐸あなた' : act.name} [${!act.alive ? '💀' : (act.ready ? '✔' : '💭')}]`;
+    badge.className = `p-badge ${act.ready ? 'p-ready' : ''} ${isPink ? 'high-affinity' : ''}`;
+    badge.innerText = `${isMe ? '🐸あなた' : act.name}(${act.gender}) [${!act.alive ? '💀' : (act.ready ? '✔' : '💭')}]`;
+    if (!isMe) badge.onclick = () => checkAffinityWith(act.id);
     pListEl.appendChild(badge);
   }
 
-  // ログ更新
   if (state.logs && state.logs.length > 0) {
     const box = document.getElementById("log-box");
     state.logs.forEach(l => {
@@ -553,294 +712,9 @@ function renderGameUI(state) {
   }
 }
 
-function updateMoveSelect(myStage, currentZone) {
-  const sel = document.getElementById("move-sel");
-  sel.innerHTML = "";
-  [currentZone - 1, currentZone, currentZone + 1].forEach(z => {
-    if (z >= 0 && z < 5) {
-      const opt = document.createElement("option");
-      opt.value = z;
-      const minStage = [1, 1, 3, 4, 5][z];
-      const disabled = myStage < minStage;
-      opt.innerText = (z === currentZone ? "【現在地】" : "➔ ") + ZONE_NAMES[z] + (disabled ? " (成長不足)" : "");
-      opt.disabled = disabled;
-      if (z === currentZone) opt.selected = true;
-      sel.appendChild(opt);
-    }
-  });
-}
+// 全体ミニマップ（親密度ピンク枠対応）
+function renderMinimap(state, myCurrentZone) {
+  const me = state.actors[myActorId];
 
-function renderEventCard(state) {
-  const ev = state.event;
-  const sel = document.getElementById("ev-choice-sel");
-  if (!ev) {
-    document.getElementById("event-card-box").style.display = "none";
-    return;
-  }
-  document.getElementById("event-card-box").style.display = "block";
-  document.getElementById("ev-title").innerText = ev.title;
-  document.getElementById("ev-desc").innerText = ev.desc;
-
-  sel.innerHTML = "";
-  ev.choices.forEach(c => {
-    const opt = document.createElement("option");
-    opt.value = c.id;
-    opt.innerText = c.text;
-    sel.appendChild(opt);
-  });
-}
-
-function sendAction() {
-  const moveZone = parseInt(document.getElementById("move-sel").value);
-  const act = document.getElementById("act-sel").value;
-  const evChoice = document.getElementById("ev-choice-sel").value;
-
-  ws.send(JSON.stringify({
-    type: "SUBMIT_ACTION",
-    action: { moveZone: moveZone, act: act },
-    eventChoice: evChoice
-  }));
-}
-
-function renderResult(state) {
-  const box = document.getElementById("ranking-box");
-  box.innerHTML = "";
-  state.ranking.forEach((r, idx) => {
-    box.innerHTML += `
-      <div class="rank-row">
-        <span><strong>${idx + 1}位</strong> ${r.name} (${r.alive ? '生存' : '死亡'})</span>
-        <span>卵: ${r.offspring}個 / <strong>${r.score}pt</strong></span>
-      </div>
-    `;
-  });
-
-  const meRank = state.ranking.find(r => r.id === myActorId);
-  if (meRank && meRank.history) {
-    const hBox = document.getElementById("my-history-box");
-    hBox.innerHTML = meRank.history.map(h => `・${h}`).join("<br>");
-  }
-}
-
-// ==================== 2Dドット絵アニメーションエンジン ====================
-function updateAnim() {
-  blinkTimer++;
-  if (blinkTimer > 150) blinkTimer = 0;
-
-  // 気泡
-  bubbles.forEach(b => {
-    b.y -= b.s;
-    b.x += Math.sin(tick * 0.1 + b.y) * 0.3;
-    if (b.y < 72) { b.y = 140; b.x = 20 + Math.random() * 160; }
-  });
-
-  // 雨
-  if (lastState && lastState.weather === "雨") {
-    raindrops.forEach(r => {
-      r.y += r.v; r.x -= 0.8;
-      if (r.y > 150) { r.y = 0; r.x = Math.random() * 220; }
-    });
-  }
-
-  // サギ嘴アニメーション
-  if (heronAttackY > -45) {
-    if (heronAttackY < 75) heronAttackY += 6;
-    else heronAttackY -= 3;
-  }
-
-  // ヤゴ顎アニメーション
-  if (yagoJawX > -15) {
-    if (yagoJawX < 24) yagoJawX += 5;
-    else yagoJawX -= 2;
-  }
-}
-
-function renderScene(ctx) {
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, 200, 150);
-
-  // ⑤ 草むら
-  ctx.fillStyle = "#1b2918"; ctx.fillRect(0, 0, 200, 50);
-  ctx.fillStyle = "#274222";
-  for (let x = 4; x < 200; x += 8) ctx.fillRect(x, 22 - (x % 3) * 4, 3, 30);
-  ctx.fillStyle = "#386131";
-  for (let x = 0; x < 200; x += 6) ctx.fillRect(x, 30 - (x % 4) * 3, 2, 22);
-
-  // ④ 水際・倒木
-  ctx.fillStyle = "#2e2114"; ctx.fillRect(0, 50, 200, 20);
-  ctx.fillStyle = "#4a3520"; ctx.fillRect(20, 52, 45, 9);
-  ctx.fillStyle = "#63472b"; ctx.fillRect(22, 53, 40, 2);
-
-  // ③〜② 水中
-  const waterGrad = ctx.createLinearGradient(0, 70, 0, 130);
-  waterGrad.addColorStop(0, "#194740"); waterGrad.addColorStop(1, "#0a1f1c");
-  ctx.fillStyle = waterGrad; ctx.fillRect(0, 70, 200, 60);
-
-  // 水面波
-  ctx.fillStyle = "rgba(120, 240, 220, 0.6)"; ctx.fillRect(0, 70, 200, 1);
-  ctx.fillStyle = "#ffffff";
-  for (let x = 0; x < 200; x += 16) {
-    const waveX = (x + (tick % 16)) % 200;
-    ctx.fillRect(waveX, 70, 5, 1);
-  }
-
-  // 水草
-  drawPixelWeed(ctx, 40, 130, 35, tick, 0);
-  drawPixelWeed(ctx, 160, 130, 40, tick, 2);
-
-  // 気泡
-  ctx.fillStyle = "rgba(200, 255, 240, 0.7)";
-  bubbles.forEach(b => ctx.fillRect(Math.floor(b.x), Math.floor(b.y), 2, 2));
-
-  // ① 泥底
-  ctx.fillStyle = "#19110a"; ctx.fillRect(0, 130, 200, 20);
-  ctx.fillStyle = "#2b1c10"; ctx.fillRect(0, 130, 200, 2);
-
-  // 獲物コオロギ
-  drawPixelCricket(ctx, 150, 38, tick);
-
-  // アクターたちのドット絵描画
-  if (lastState && lastState.actors) {
-    const alive = Object.values(lastState.actors).filter(a => a.alive);
-    const zoneCounts = [0, 0, 0, 0, 0];
-
-    alive.forEach(actor => {
-      const z = actor.zone;
-      const count = zoneCounts[z];
-      zoneCounts[z]++;
-
-      // ゾーンごとのX座標分散
-      const ax = 30 + (count % 8) * 20;
-      const ay = ZONE_Y[z] + Math.floor(count / 8) * 8;
-      const isMe = (actor.id === myActorId);
-
-      drawActorFrog(ctx, ax, ay, actor.stage, z, isMe);
-    });
-  }
-
-  // サギ急襲
-  if (heronAttackY > -45) {
-    ctx.fillStyle = "#e6a817";
-    ctx.beginPath();
-    ctx.moveTo(95, heronAttackY - 40); ctx.lineTo(105, heronAttackY - 40); ctx.lineTo(100, heronAttackY);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(99, heronAttackY - 30, 2, 20);
-  }
-
-  // ヤゴ急襲
-  drawPixelYago(ctx, 50, 134, yagoJawX);
-
-  // 雨
-  if (lastState && lastState.weather === "雨") {
-    ctx.fillStyle = "rgba(180, 220, 255, 0.7)";
-    raindrops.forEach(r => ctx.fillRect(Math.floor(r.x), Math.floor(r.y), 1, 4));
-  }
-}
-
-function drawActorFrog(ctx, x, y, st, z, isMe) {
-  const pal = FROG_PALETTES[z];
-  ctx.save();
-  ctx.translate(x, y);
-
-  if (st === 1) {
-    // オタマ
-    const tailOff = Math.round(Math.sin(tick * 0.25 + x) * 2);
-    ctx.fillStyle = isMe ? "#77ee77" : pal.dark;
-    ctx.fillRect(-3, -2, 6, 5);
-    ctx.fillStyle = "#000"; ctx.fillRect(1, -2, 1, 1);
-    ctx.fillStyle = pal.dark;
-    ctx.fillRect(-6, -1 + tailOff, 3, 2);
-    ctx.fillRect(-9, tailOff, 3, 1);
-  } else if (st === 2) {
-    // 後足オタマ
-    const kick = Math.sin(tick * 0.25 + x) > 0 ? 1 : -1;
-    ctx.fillStyle = isMe ? "#77ee77" : pal.dark;
-    ctx.fillRect(-4, -3, 7, 6);
-    ctx.fillStyle = "#000"; ctx.fillRect(1, -3, 1, 1);
-    ctx.fillStyle = pal.dark;
-    ctx.fillRect(-7, -1, 3, 2);
-    if (kick > 0) ctx.fillRect(-3, 3, 2, 3); else ctx.fillRect(-4, 2, 2, 2);
-  } else if (st === 3) {
-    // 前足オタマ
-    ctx.fillStyle = isMe ? "#77ee77" : pal.dark;
-    ctx.fillRect(-5, -4, 9, 7);
-    ctx.fillStyle = "#000"; ctx.fillRect(1, -3, 2, 2);
-    ctx.fillStyle = pal.dark; ctx.fillRect(-8, -1, 4, 2);
-    ctx.fillRect(-2, 3, 2, 2); ctx.fillRect(-4, 3, 2, 2);
-  } else if (st === 4) {
-    // 尾変態
-    ctx.fillStyle = isMe ? "#77ee77" : pal.body;
-    ctx.fillRect(-5, -4, 10, 8);
-    ctx.fillStyle = pal.dark; ctx.fillRect(-8, -1, 3, 2);
-    ctx.fillStyle = pal.eye; ctx.fillRect(1, -5, 2, 2);
-  } else if (st === 5) {
-    // 子ガエル
-    ctx.fillStyle = isMe ? "#77ee77" : pal.body;
-    ctx.fillRect(-5, -4, 9, 7);
-    ctx.fillStyle = pal.belly; ctx.fillRect(-2, 0, 4, 3);
-    ctx.fillStyle = pal.eye; ctx.fillRect(1, -5, 2, 2);
-  } else {
-    // 成体カエル
-    const puff = (Math.sin(tick * 0.12) > 0.4) ? 2 : 0;
-    const isBlink = (blinkTimer > 140);
-
-    ctx.fillStyle = pal.dark;
-    ctx.fillRect(-9, 1, 5, 5); ctx.fillRect(4, 1, 5, 5); // 太もも
-    ctx.fillStyle = isMe ? "#77ee77" : pal.body;
-    ctx.fillRect(-6, -4, 13, 9); // 胴体
-    ctx.fillStyle = pal.belly; ctx.fillRect(-2, 0, 5, 4); // お腹
-
-    if (puff > 0) {
-      ctx.fillStyle = pal.belly; ctx.fillRect(-3, -1, 7, 2 + puff); // 喉膨らみ
-    }
-
-    ctx.fillStyle = "#112211"; ctx.fillRect(-5, -2, 11, 1); // アイライン
-
-    if (!isBlink) {
-      ctx.fillStyle = pal.eye;
-      ctx.fillRect(-3, -6, 3, 3); ctx.fillRect(2, -6, 3, 3);
-      ctx.fillStyle = "#000";
-      ctx.fillRect(-2, -5, 2, 1); ctx.fillRect(3, -5, 2, 1);
-    } else {
-      ctx.fillStyle = pal.dark;
-      ctx.fillRect(-3, -5, 3, 1); ctx.fillRect(2, -5, 3, 1);
-    }
-  }
-
-  // プレイヤー識別マーカー
-  if (isMe) {
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(-2, -st * 2 - 4, 4, 1);
-  }
-
-  ctx.restore();
-}
-
-function drawPixelWeed(ctx, x, baseY, h, t, off) {
-  const sway = Math.round(Math.sin(t * 0.08 + off) * 3);
-  ctx.fillStyle = "#1b4d29";
-  for (let y = 0; y < h; y += 4) {
-    const curX = x + Math.round((y / h) * sway);
-    ctx.fillRect(curX, baseY - y, 2, 4);
-  }
-}
-
-function drawPixelCricket(ctx, x, y, t) {
-  const jump = (t % 60 < 6) ? -3 : 0;
-  ctx.fillStyle = "#4a2a12"; ctx.fillRect(x, y + jump, 5, 3);
-  ctx.fillRect(x + 4, y - 2 + jump, 2, 2);
-  ctx.fillStyle = "#2b1406"; ctx.fillRect(x - 2, y + 2 + jump, 2, 2);
-}
-
-function drawPixelYago(ctx, x, y, jawExt) {
-  ctx.fillStyle = "#2e1e12"; ctx.fillRect(x, y, 16, 6); ctx.fillRect(x + 12, y - 2, 5, 4);
-  ctx.fillStyle = (tick % 20 < 10) ? "#ff3333" : "#aa1111";
-  ctx.fillRect(x + 14, y - 3, 2, 2);
-  if (jawExt > 0) {
-    ctx.fillStyle = "#5c3d24"; ctx.fillRect(x + 17, y - 1, jawExt, 3);
-    ctx.fillRect(x + 17 + jawExt, y - 3, 3, 6);
-  }
-}
-</script>
-
-</body>
-</html>
+  for (let z = 0; z < 5; z++) {
+    const zoneBox = document.getElementById(`mm-z-${z}`);
