@@ -39,7 +39,8 @@ const PREY_MASTER = {
   ],
   3: [
     { id: "woodlouse", name: "ワラジムシ", diff: 35, food: 38, exp: 25 },
-    { id: "fly", name: "小型ハエ", diff: 40, food: 40, exp: 28 }
+    { id: "fly", name: "小型ハエ", diff: 40, food: 40, exp: 28 },
+    { id: "large_mayfly", name: "\u5927\u578b\u30c8\u30d3\u30b1\u30e9\u5e7c\u866b", diff: 58, food: 60, exp: 40 },
   ],
   4: [
     { id: "cricket", name: "コオロギ", diff: 50, food: 55, exp: 35 },
@@ -408,7 +409,9 @@ wss.on("connection", (ws) => {
           const fromActor = room.actors[myActorId];
           const targetActor = room.actors[data.targetId];
 
-          if (fromActor && targetActor && fromActor.alive && targetActor.alive && fromActor.zone === targetActor.zone) {
+          const validCoopType = ["feed", "huddle", "mate"].includes(data.coopType);
+          const validMate = data.coopType !== "mate" || (fromActor && targetActor && fromActor.stage >= 6 && targetActor.stage >= 6 && fromActor.gender !== targetActor.gender && fromActor.stamina >= 50);
+          if (validCoopType && validMate && fromActor && targetActor && fromActor.id !== targetActor.id && fromActor.alive && targetActor.alive && fromActor.zone === targetActor.zone) {
             if (targetActor.isPlayer) {
               room.coopRequests[targetActor.id] = {
                 fromId: fromActor.id,
@@ -428,8 +431,8 @@ wss.on("connection", (ws) => {
               chance = Math.max(5, Math.min(95, Math.round(chance)));
 
               if (Math.random() * 100 < chance) {
-                room.coopAccepted[fromActor.id] = { partnerId: targetActor.id, type: data.coopType, preyId: data.preyId };
-                room.coopAccepted[targetActor.id] = { partnerId: fromActor.id, type: data.coopType, preyId: data.preyId };
+                room.coopAccepted[fromActor.id] = { partnerId: targetActor.id, initiatorId: fromActor.id, type: data.coopType, preyId: data.preyId };
+                room.coopAccepted[targetActor.id] = { partnerId: fromActor.id, initiatorId: fromActor.id, type: data.coopType, preyId: data.preyId };
                 ws.send(JSON.stringify({ type: "COOP_RESPONSE_NOTIFY", accepted: true, targetName: targetActor.name }));
               } else {
                 addAffinity(targetActor, fromActor, -6);
@@ -447,9 +450,10 @@ wss.on("connection", (ws) => {
           const fromActor = room.actors[req.fromId];
           const targetActor = room.actors[myActorId];
 
-          if (data.accept && fromActor && fromActor.alive) {
-            room.coopAccepted[fromActor.id] = { partnerId: targetActor.id, type: req.type, preyId: req.preyId };
-            room.coopAccepted[targetActor.id] = { partnerId: fromActor.id, type: req.type, preyId: req.preyId };
+          const validMate = req.type !== "mate" || (fromActor && targetActor && fromActor.stage >= 6 && targetActor.stage >= 6 && fromActor.gender !== targetActor.gender && fromActor.stamina >= 50);
+          if (data.accept && fromActor && fromActor.alive && targetActor && targetActor.alive && fromActor.zone === targetActor.zone && validMate) {
+            room.coopAccepted[fromActor.id] = { partnerId: targetActor.id, initiatorId: fromActor.id, type: req.type, preyId: req.preyId };
+            room.coopAccepted[targetActor.id] = { partnerId: fromActor.id, initiatorId: fromActor.id, type: req.type, preyId: req.preyId };
             const fromWs = room.clients[fromActor.id];
             if (fromWs && fromWs.readyState === WebSocket.OPEN) {
               fromWs.send(JSON.stringify({ type: "COOP_RESPONSE_NOTIFY", accepted: true, targetName: targetActor.name }));
@@ -582,6 +586,30 @@ function startTurnTimer(room) {
 // ==========================================
 // ターン解決処理（コアルール）
 // ==========================================
+function applyAcceptedCoopActions(room) {
+  const handled = new Set();
+  Object.entries(room.coopAccepted || {}).forEach(([actorId, accepted]) => {
+    const initiator = room.actors[accepted.initiatorId || actorId];
+    const partner = room.actors[accepted.partnerId];
+    if (!initiator || !partner || handled.has(initiator.id) || handled.has(partner.id) || !initiator.alive || !partner.alive) return;
+    handled.add(initiator.id);
+    handled.add(partner.id);
+    const initiatorAction = room.actions[initiator.id] || {};
+    const partnerAction = room.actions[partner.id] || {};
+    const sharedMoveZone = initiatorAction.moveZone !== undefined ? initiatorAction.moveZone : initiator.zone;
+    if (accepted.type === "feed") {
+      room.actions[initiator.id] = { ...initiatorAction, act: "feed", targetPreyId: accepted.preyId, targetId: partner.id };
+      room.actions[partner.id] = { ...partnerAction, moveZone: sharedMoveZone, act: "feed", targetPreyId: accepted.preyId, targetId: initiator.id };
+    } else if (accepted.type === "huddle") {
+      room.actions[initiator.id] = { ...initiatorAction, act: "huddle", targetId: partner.id };
+      room.actions[partner.id] = { ...partnerAction, moveZone: sharedMoveZone, act: "huddle", targetId: initiator.id };
+    } else if (accepted.type === "mate") {
+      room.actions[initiator.id] = { ...initiatorAction, act: "mate", targetId: partner.id };
+      room.actions[partner.id] = { ...partnerAction, moveZone: sharedMoveZone, act: "mate", targetId: initiator.id, coopResponder: true };
+    }
+  });
+}
+
 function resolveTurn(room) {
   if (room.timer) clearInterval(room.timer);
 
@@ -603,6 +631,7 @@ function resolveTurn(room) {
 
   // ② NPCの行動・イベント選択決定
   decideNpcActions(room);
+  applyAcceptedCoopActions(room);
 
   // ③ 移動処理
   Object.values(room.actors).filter(a => a.alive).forEach(a => {
@@ -818,6 +847,7 @@ function resolveActions(room, logs) {
         partner.water = Math.min(100, partner.water + 25);
         addAffinity(a, partner, 8);
         room.turnSummaries[a.id].action = `【カエル団子】${partner.name} と身を寄せ合って保湿した。（水分+25, 親密度+8）`;
+        room.turnSummaries[partner.id].action = `\u3010\u30ab\u30a8\u30eb\u56e3\u5b50\u6210\u529f\u3011${a.name}\u3068\u5bc6\u96c6\u3057\u3066\u4fdd\u6e7f\u3002\u6c34\u5206+25\u3001\u89aa\u5bc6\u5ea6+8`;
         appendSocialLog(room.turnSummaries[partner.id], `🐸 ${a.name} とのカエル団子が成功し、保湿と親密度上昇の効果を得た。（水分+25、親密度+8）`);
         logs.push(`🐸 【カエル団子成功】${a.name} と ${partner.name} が身を寄せ合い、保湿した！（水分+25、親密度+8）`);
       } else {
@@ -832,20 +862,27 @@ function resolveActions(room, logs) {
       const targetAction = room.actions[target && target.id];
       const targetIsProtected = target && ((room.huddleProtected && room.huddleProtected.has(target.id)) || (targetAction && targetAction.act === "rest"));
       if (target && target.alive && target.zone === a.zone && !targetIsProtected) {
-        target.hp -= 20;
+        const damage = Math.max(5, Math.min(40, 20 + ((a.level || 1) - (target.level || 1)) * 3));
+        target.hp = Math.max(0, target.hp - damage);
         addAffinity(a, target, -30);
-        room.turnSummaries[a.id].action = `【攻撃】${target.name} に体当たりしてダメージを与えた！（親密度-30）`;
-        room.turnSummaries[target.id].danger = `${a.name} から不意打ち攻撃を受け、HP-20のダメージ！`;
-        logs.push(`⚔️ ${a.name} が ${target.name} を攻撃！険悪な空気が流れた。`);
+        room.turnSummaries[a.id].action = `【攻撃】${target.name} に攻撃し、レベル差を反映した HP-${damage} のダメージ！（親密度-30）`;
+        room.turnSummaries[target.id].danger = `${a.name} から攻撃を受け、HP-${damage} のダメージ！（攻撃側Lv.${a.level || 1} / 自分Lv.${target.level || 1}）`;
+        logs.push(`⚔️ ${a.name} が ${target.name} を攻撃し、HP-${damage}！`);
       }
     }
 
     // ⑧ 求愛・繁殖
     else if (act === "mate") {
       const target = room.actors[actData.targetId];
+      const mateRequest = room.coopAccepted[a.id];
+      const acceptedMate = mateRequest && mateRequest.type === "mate" && mateRequest.partnerId === target?.id && mateRequest.initiatorId === a.id;
+      if (mateRequest && mateRequest.type === "mate" && mateRequest.initiatorId !== a.id) {
+        room.turnSummaries[a.id].action = `【求愛を受諾】${target?.name || "相手"} の求愛を受け入れ、相手の行動に合流した。`;
+        return;
+      }
       if (a.stamina < 50) {
         room.turnSummaries[a.id].action = "【求愛不可】求愛には気力が50以上必要です。";
-      } else if (a.stage >= 6 && target && target.alive && target.zone === a.zone && target.stage >= 6 && target.gender !== a.gender) {
+      } else if (a.stage >= 6 && target && target.alive && target.zone === a.zone && target.stage >= 6 && target.gender !== a.gender && acceptedMate) {
         const aff = (a.affinity && a.affinity[target.id]) || 0;
         let baseEggs = 18;
         if (aff >= 70) baseEggs = Math.floor(46 + Math.random() * 15);
@@ -856,6 +893,7 @@ function resolveActions(room, logs) {
         target.offspringCount += baseEggs;
         a.stamina = Math.max(0, a.stamina - 50);
         addAffinity(a, target, 20);
+        coopDone.add(target.id);
 
         room.turnSummaries[a.id].action = `💖 【交配成功！】${target.name} と愛を交わし、卵を ${baseEggs} 個産卵した！（気力-50、親密度+20）`;
         appendSocialLog(room.turnSummaries[target.id], `💖 ${a.name} からの求愛を受け入れて交配が成功。卵を ${baseEggs} 個産卵した。（親密度+20）`);
@@ -1260,16 +1298,16 @@ resolveEvents = function(room, logs) {
     room.turnSummaries[actorId].event = result.log1;
     room.turnSummaries[partnerId].event = result.log2;
     const affinity = (actor.affinity && actor.affinity[partnerId]) || 0;
-    room.turnSummaries[actorId].event += ` （現在の親密度: ${affinity}）`;
-    room.turnSummaries[partnerId].event += ` （現在の親密度: ${affinity}）`;
+    room.turnSummaries[actorId].event += ` \u73fe\u5728\u306e\u89aa\u5bc6\u5ea6: ${affinity}`;
+    room.turnSummaries[partnerId].event += ` \u73fe\u5728\u306e\u89aa\u5bc6\u5ea6: ${affinity}`;
 
     const betrayalChoice = ev.choices[ev.choices.length - 1];
     if (betrayalChoice) {
       if (resolvedChoices[partnerId] === betrayalChoice.id) {
-        room.turnSummaries[actorId].event += ` 相手は「${betrayalChoice.text}」を選び、裏切る行動を実行した。`;
+        room.turnSummaries[actorId].event += ` \u76f8\u624b\u306f\u300c${betrayalChoice.text}\u300d\u3092\u9078\u3073\u3001\u88cf\u5207\u308a\u884c\u52d5\u3092\u5b9f\u884c\u3002\u7d50\u679c: ${result.log2}`;
       }
       if (resolvedChoices[actorId] === betrayalChoice.id) {
-        room.turnSummaries[partnerId].event += ` 相手は「${betrayalChoice.text}」を選び、裏切る行動を実行した。`;
+        room.turnSummaries[partnerId].event += ` \u76f8\u624b\u306f\u300c${betrayalChoice.text}\u300d\u3092\u9078\u3073\u3001\u88cf\u5207\u308a\u884c\u52d5\u3092\u5b9f\u884c\u3002\u7d50\u679c: ${result.log1}`;
       }
     }
   }

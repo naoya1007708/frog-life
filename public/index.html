@@ -555,7 +555,8 @@ const PREY_MASTER = {
   ],
   3: [
     { id: "woodlouse", name: "ワラジムシ", diff: 35, food: 38, exp: 25 },
-    { id: "fly", name: "小型ハエ", diff: 40, food: 40, exp: 28 }
+    { id: "fly", name: "小型ハエ", diff: 40, food: 40, exp: 28 },
+    { id: "large_mayfly", name: "\u5927\u578b\u30c8\u30d3\u30b1\u30e9\u5e7c\u866b", diff: 58, food: 60, exp: 40 },
   ],
   4: [
     { id: "cricket", name: "コオロギ", diff: 50, food: 55, exp: 35 },
@@ -665,6 +666,8 @@ let gameAudioUnlocked = false;
 let weatherBgmTimer = null;
 let currentBgmWeather = null;
 let weatherBgmStep = 0;
+let rainNoiseSource = null;
+let rainNoiseGain = null;
 
 const WEATHER_BGM = {
   "快晴": { notes: [392, 494, 587, 494, 440, 523, 659, 523], interval: 920, wave: "triangle" },
@@ -702,6 +705,41 @@ function stopWeatherBgm() {
   if (weatherBgmTimer) clearInterval(weatherBgmTimer);
   weatherBgmTimer = null;
   currentBgmWeather = null;
+  stopRainAmbience();
+}
+
+function stopRainAmbience() {
+  if (rainNoiseGain && gameAudioContext) {
+    const now = gameAudioContext.currentTime;
+    rainNoiseGain.gain.cancelScheduledValues(now);
+    rainNoiseGain.gain.setTargetAtTime(0, now, 0.08);
+    if (rainNoiseSource) {
+      try { rainNoiseSource.stop(now + 0.35); } catch (_) {}
+    }
+  }
+  rainNoiseSource = null;
+  rainNoiseGain = null;
+}
+
+function setRainAmbience(enabled) {
+  stopRainAmbience();
+  if (!enabled || !gameAudioContext || !gameAudioMaster || !gameAudioEnabled) return;
+  const buffer = gameAudioContext.createBuffer(1, gameAudioContext.sampleRate * 2, gameAudioContext.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.45;
+  rainNoiseSource = gameAudioContext.createBufferSource();
+  rainNoiseSource.buffer = buffer;
+  rainNoiseSource.loop = true;
+  const filter = gameAudioContext.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 2200;
+  rainNoiseGain = gameAudioContext.createGain();
+  rainNoiseGain.gain.value = 0;
+  rainNoiseSource.connect(filter);
+  filter.connect(rainNoiseGain);
+  rainNoiseGain.connect(gameAudioMaster);
+  rainNoiseSource.start();
+  rainNoiseGain.gain.setTargetAtTime(0.12, gameAudioContext.currentTime, 0.35);
 }
 
 function playWeatherNote(cfg) {
@@ -711,21 +749,22 @@ function playWeatherNote(cfg) {
   weatherBgmStep++;
   const oscillator = gameAudioContext.createOscillator();
   const gain = gameAudioContext.createGain();
-  oscillator.type = cfg.wave;
-  oscillator.frequency.setValueAtTime(frequency, now);
+  oscillator.type = cfg.wave === "sine" ? "triangle" : "square";
+  oscillator.frequency.setValueAtTime(frequency * 1.5, now);
   gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.linearRampToValueAtTime(0.018, now + 0.06);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
+  gain.gain.linearRampToValueAtTime(0.024, now + 0.04);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
   oscillator.connect(gain);
   gain.connect(gameAudioMaster);
   oscillator.start(now);
-  oscillator.stop(now + 0.64);
+  oscillator.stop(now + 0.50);
 }
 
 function updateWeatherBgm(weather) {
   if (!gameAudioEnabled || !gameAudioUnlocked || !gameAudioContext || !weather) return;
   if (weather === currentBgmWeather && weatherBgmTimer) return;
   stopWeatherBgm();
+  setRainAmbience(weather === "雨" || weather === "豪雨");
   currentBgmWeather = weather;
   weatherBgmStep = 0;
   const cfg = WEATHER_BGM[weather] || WEATHER_BGM["曇り"];
@@ -1012,7 +1051,7 @@ function closeTraitModal() {
 }
 
 function showCoopConfirmModal(req) {
-  const typeTxt = req.type === "huddle" ? "【カエル団子 (集団保湿)】" : "【大型獲物の協力捕食】";
+  const typeTxt = { huddle: "\u3010\u30ab\u30a8\u30eb\u56e3\u5b50\u3011", mate: "\u3010\u6c42\u611b\u30fb\u4ea4\u914d\u3011", feed: "\u3010\u5927\u578b\u7372\u7269\u306e\u5354\u529b\u6355\u98df\u3011" }[req.type] || "\u3010\u5354\u529b\u7533\u8acb\u3011";
   document.getElementById("coop-req-msg").innerText = `${req.fromName} から ${typeTxt} の協力申請が届きました！`;
   document.getElementById("coop-confirm-modal").style.display = "flex";
 }
@@ -1414,7 +1453,7 @@ function checkLargePrey() {
   const actorBox = document.getElementById("actor-target-box");
   const actorLabel = document.getElementById("actor-target-label");
 
-  if (preyId === "earthworm") {
+  if (preyId === "earthworm" || preyId === "large_mayfly") {
     coopLabel.style.display = "inline-block";
     if (document.getElementById("coop-feed-chk").checked) {
       actorBox.style.display = "block";
@@ -1650,11 +1689,11 @@ function sendAction() {
       coopType: "feed",
       preyId: targetPreyId
     }));
-  } else if (act === "huddle" && targetId && ws && ws.readyState === WebSocket.OPEN) {
+  } else if ((act === "huddle" || act === "mate") && targetId && ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
       type: "SEND_COOP_REQUEST",
       targetId: targetId,
-      coopType: "huddle"
+      coopType: act
     }));
   }
 
