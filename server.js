@@ -12,42 +12,53 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ==================== 定数・マスターデータ ====================
 const MAX_TURNS = 35;
-const TURN_DURATION = 120; // 思考時間2分
+const TURN_DURATION = 120;
 
 const ZONES = [
   { id: 0, name: "① 水底・泥地", minStage: 1, baseWaterLoss: 0, prey: [
-    { id: "algae", name: "アオミドロ(藻)", diff: 0, food: 18, exp: 6 },
-    { id: "chironomid", name: "ユスリカの幼虫", diff: 10, food: 22, exp: 8 }
+    { id: "algae", name: "アオミドロ(藻)", diff: 0, food: 18, exp: 8 },
+    { id: "chironomid", name: "ユスリカの幼虫", diff: 10, food: 22, exp: 12 }
   ]},
   { id: 1, name: "② 水中(水草)", minStage: 1, baseWaterLoss: 0, prey: [
-    { id: "daphnia", name: "ミジンコ", diff: 5, food: 15, exp: 5 },
-    { id: "wriggler", name: "ボウフラ", diff: 15, food: 25, exp: 9 },
-    { id: "bloodworm", name: "アカムシ", diff: 20, food: 28, exp: 11 }
+    { id: "daphnia", name: "ミジンコ", diff: 5, food: 15, exp: 8 },
+    { id: "wriggler", name: "ボウフラ", diff: 15, food: 25, exp: 14 },
+    { id: "bloodworm", name: "アカムシ", diff: 20, food: 28, exp: 18 }
   ]},
   { id: 2, name: "③ 水面・浅瀬", minStage: 3, baseWaterLoss: 0, prey: [
-    { id: "mosquito", name: "落ちた蚊", diff: 25, food: 30, exp: 12 },
-    { id: "strider", name: "アメンボ", diff: 30, food: 32, exp: 14 }
+    { id: "mosquito", name: "落ちた蚊", diff: 25, food: 30, exp: 20 },
+    { id: "strider", name: "アメンボ", diff: 30, food: 32, exp: 22 }
   ]},
   { id: 3, name: "④ 水際・湿地", minStage: 4, baseWaterLoss: 5, prey: [
-    { id: "woodlouse", name: "ワラジムシ", diff: 35, food: 38, exp: 16 },
-    { id: "fly", name: "小型ハエ", diff: 40, food: 40, exp: 18 }
+    { id: "woodlouse", name: "ワラジムシ", diff: 35, food: 38, exp: 25 },
+    { id: "fly", name: "小型ハエ", diff: 40, food: 40, exp: 28 }
   ]},
   { id: 4, name: "⑤ 草むら・陸地", minStage: 5, baseWaterLoss: 20, prey: [
-    { id: "cricket", name: "コオロギ", diff: 50, food: 55, exp: 22 },
-    { id: "grasshopper", name: "大型バッタ", diff: 65, food: 65, exp: 28 },
-    { id: "earthworm", name: "巨大ミミズ (大物)", diff: 85, food: 85, exp: 35 }
+    { id: "cricket", name: "コオロギ", diff: 50, food: 55, exp: 35 },
+    { id: "grasshopper", name: "大型バッタ", diff: 65, food: 65, exp: 45 },
+    { id: "earthworm", name: "巨大ミミズ (大物・協力推奨)", diff: 85, food: 85, exp: 60 }
   ]}
 ];
 
+// ★レベルと変態段階の対応（成体以降もレベルは上がり続ける！）
+// Lv 1〜2: オタマ / Lv 3〜4: 後足 / Lv 5〜6: 前足 / Lv 7〜8: 尾変態 / Lv 9〜11: 子ガエル / Lv 12〜: 成体
+function getStageFromLevel(level) {
+  if (level >= 12) return 6; // 成体
+  if (level >= 9) return 5;  // 子ガエル
+  if (level >= 7) return 4;  // 尾変態
+  if (level >= 5) return 3;  // 前足
+  if (level >= 3) return 2;  // 後足
+  return 1;                  // オタマ
+}
+
+function getNextExpForLevel(level) {
+  return 10 + (level * 6); // レベルが上がるにつれて必要EXPが少しずつ増加
+}
+
 const STAGE_NAMES = ["", "オタマジャクシ", "後足が生えた", "前足が生えた", "変態期(尾あり)", "子ガエル", "成体カエル"];
-const EXP_THRESHOLDS = [0, 10, 25, 45, 75, 115, 9999];
 const NPC_PERSONALITIES = ["温厚", "臆病", "利己", "獰猛", "気まぐれ"];
 const TRAITS = ["頑強", "大食漢", "身軽", "高代謝", "慎重"];
 
-// ★天候プール（全5種）
-const WEATHER_TYPES = ["快晴", "曇り", "雨", "日照り", "豪雨"];
-
-// エリア別イベントプール
+// エリア別イベント
 const AREA_EVENTS = {
   global: [
     { id: "g_rain", title: "【全体】恵みのゲリラ豪雨", desc: "池全体に激しいスコール！陸地が潤い、虫たちが地面に落ちてきた！", choices: [{ id: "rush", text: "🦗 陸へ駆け上がって乱獲" }, { id: "stay", text: "💧 水中で安全に雨宿り" }] },
@@ -98,6 +109,8 @@ function createNewRoom(roomId) {
     actors: {},
     eventsByZone: {},
     pairTargets: {},
+    coopRequests: {}, // 協力申請データ { [targetId]: { fromId, type, preyId } }
+    coopAccepted: {}, // 成立した協力 { [actorId]: { partnerId, type, preyId } }
     turnSummaries: {},
     isFinished: false,
     timer: null
@@ -120,16 +133,19 @@ function createActor(id, name, isPlayer) {
   return {
     id, name, isPlayer, personality, trait, gender,
     alive: true,
+    level: 1,       // ★レベル概念
+    exp: 0,
     stage: 1,
     eggs: 2,
     offspringCount: 0,
     hp: 100, food: 100, water: 100, stamina: 100,
-    length: 1.0, weight: 0.5, exp: 0,
+    length: 1.0,    // ★体長(cm)
+    weight: 0.5,    // ★体重(g)
     zone: 1,
     ready: false,
     action: null,
     eventChoice: null,
-    affinity: {},
+    affinity: {},   // 親密度
     history: [`第1世代の卵塊から誕生（性別: ${gender === '♂' ? 'オス' : 'メス'} / 特徴: ${trait}）`]
   };
 }
@@ -226,18 +242,18 @@ function resolveTurn(room) {
   // 3. エリア連動イベント解決
   resolveAreaEvents(room, logs);
 
-  // 4. 天敵襲来（※豪雨時は天敵が隠れて襲来しない）
+  // 4. 天敵襲来
   if (room.nextPredator && room.weather !== "豪雨") {
     room.activePredatorAnimation = room.nextPredator;
     resolvePredator(room, logs);
   } else if (room.weather === "豪雨") {
-    logs.push("⛈️ 激しい豪雨のため、天敵たちは身を隠している。");
+    logs.push("⛈️ 激しい豪雨のため、天敵たちは身を潜めている。");
   }
 
-  // 5. アクション解決
+  // 5. アクション解決（協力捕食・カエル団子・求愛・通常捕食）
   resolveActions(room, logs);
 
-  // 6. 代謝・成長・死亡
+  // 6. 代謝・レベルアップ・成長・死亡
   resolveMetabolism(room, logs);
 
   // 7. 勝敗判定
@@ -252,7 +268,6 @@ function resolveTurn(room) {
   room.timeLeft = TURN_DURATION;
   room.weather = room.forecast;
 
-  // ★天候抽選（全5種）
   const wRoll = Math.random();
   if (wRoll < 0.25) room.forecast = "雨";
   else if (wRoll < 0.50) room.forecast = "快晴";
@@ -268,6 +283,9 @@ function resolveTurn(room) {
 
   pickAreaEvents(room);
 
+  // 協力データ・Readyリセット
+  room.coopRequests = {};
+  room.coopAccepted = {};
   Object.values(room.actors).forEach(a => {
     a.ready = false;
     a.action = null;
@@ -324,6 +342,7 @@ function decideNpcTurn(npc, room) {
   }
 }
 
+// ★ペアイベント解決：親密度の微調整（+6 / -12）とターンサマリーへの詳細記録
 function resolveAreaEvents(room, logs) {
   const alive = Object.values(room.actors).filter(a => a.alive);
 
@@ -345,69 +364,69 @@ function resolveAreaEvents(room, logs) {
 
         if (ev.id === "p_leaf") {
           if (p1.eventChoice === "coop" && p2.eventChoice === "coop") {
-            addAffinity(p1, p2, 20);
-            setEventSummary(room, p1, `${p2.name} と譲り合って葉に留まった (親密度UP)`);
-            setEventSummary(room, p2, `${p1.name} と譲り合って葉に留まった (親密度UP)`);
+            addAffinity(p1, p2, 6);
+            setEventSummary(room, p1, `浮葉を譲り合い耐えた (${p2.name}との親密度+6)`);
+            setEventSummary(room, p2, `浮葉を譲り合い耐えた (${p1.name}との親密度+6)`);
             if (involvesPlayer) logs.push(`ペア結末[葉]: ${p1.name} と ${p2.name} は譲り合い耐えきった`);
           } else if (p1.eventChoice === "kick" && p2.eventChoice === "coop") {
-            p2.hp -= 30; addAffinity(p2, p1, -30);
-            setEventSummary(room, p1, `${p2.name} を葉から水中に蹴り落とした！`);
-            setEventSummary(room, p2, `${p1.name} に葉から蹴り落とされた！ (HP-30)`);
+            p2.hp -= 30; addAffinity(p2, p1, -12);
+            setEventSummary(room, p1, `${p2.name} を葉から水中に蹴り落とした！ (${p2.name}親密度-12)`);
+            setEventSummary(room, p2, `${p1.name} に葉から蹴り落とされた！ (HP-30, 親密度-12)`);
             p1.history.push(`TURN ${room.turn}: ${p2.name} を葉から蹴り落とす`);
             if (involvesPlayer) logs.push(`ペア結末[葉]: ${p1.name} が ${p2.name} を水中に蹴り落とした！`);
           } else if (p1.eventChoice === "coop" && p2.eventChoice === "kick") {
-            p1.hp -= 30; addAffinity(p1, p2, -30);
-            setEventSummary(room, p2, `${p1.name} を葉から水中に蹴り落とした！`);
-            setEventSummary(room, p1, `${p2.name} に葉から蹴り落とされた！ (HP-30)`);
+            p1.hp -= 30; addAffinity(p1, p2, -12);
+            setEventSummary(room, p2, `${p1.name} を葉から水中に蹴り落とした！ (${p1.name}親密度-12)`);
+            setEventSummary(room, p1, `${p2.name} に葉から蹴り落とされた！ (HP-30, 親密度-12)`);
             p2.history.push(`TURN ${room.turn}: ${p1.name} を葉から蹴り落とす`);
             if (involvesPlayer) logs.push(`ペア結末[葉]: ${p2.name} が ${p1.name} を水中に蹴り落とした！`);
           } else {
-            p1.hp -= 20; p2.hp -= 20; addAffinity(p1, p2, -15);
-            setEventSummary(room, p1, `もつれ合い共倒れで葉から転落 (HP-20)`);
-            setEventSummary(room, p2, `もつれ合い共倒れで葉から転落 (HP-20)`);
+            p1.hp -= 20; p2.hp -= 20; addAffinity(p1, p2, -8);
+            setEventSummary(room, p1, `もつれ合い共倒れで葉から転落 (HP-20, 親密度-8)`);
+            setEventSummary(room, p2, `もつれ合い共倒れで葉から転落 (HP-20, 親密度-8)`);
             if (involvesPlayer) logs.push(`ペア結末[葉]: 2匹はもつれ合い共倒れ（HP-20）`);
           }
         } else if (ev.id === "p_dew") {
           if (p1.eventChoice === "share" && p2.eventChoice === "share") {
             p1.water = Math.min(100, p1.water + 35); p2.water = Math.min(100, p2.water + 35);
-            addAffinity(p1, p2, 15);
-            setEventSummary(room, p1, `${p2.name} と朝露を半分ずつ分け合った (水分+35)`);
-            setEventSummary(room, p2, `${p1.name} と朝露を半分ずつ分け合った (水分+35)`);
+            addAffinity(p1, p2, 6);
+            setEventSummary(room, p1, `${p2.name} と朝露を分け合った (水分+35, 親密度+6)`);
+            setEventSummary(room, p2, `${p1.name} と朝露を分け合った (水分+35, 親密度+6)`);
             if (involvesPlayer) logs.push(`ペア結末[露]: ${p1.name} と ${p2.name} は朝露を分け合った`);
           } else if (p1.eventChoice === "drink_all" && p2.eventChoice === "share") {
-            p1.water = Math.min(100, p1.water + 75); addAffinity(p2, p1, -25);
+            p1.water = Math.min(100, p1.water + 75); addAffinity(p2, p1, -12);
             setEventSummary(room, p1, `朝露を独り占めして飲み干した！ (水分+75)`);
-            setEventSummary(room, p2, `${p1.name} に朝露を独り占めされた！ (水分0)`);
+            setEventSummary(room, p2, `${p1.name} に朝露を独り占めされた！ (水分0, 親密度-12)`);
             if (involvesPlayer) logs.push(`ペア結末[露]: ${p1.name} が朝露を独り占めして飲み干した！`);
           } else if (p1.eventChoice === "share" && p2.eventChoice === "drink_all") {
-            p2.water = Math.min(100, p2.water + 75); addAffinity(p1, p2, -25);
+            p2.water = Math.min(100, p2.water + 75); addAffinity(p1, p2, -12);
             setEventSummary(room, p2, `朝露を独り占めして飲み干した！ (水分+75)`);
-            setEventSummary(room, p1, `${p2.name} に朝露を独り占めされた！ (水分0)`);
+            setEventSummary(room, p1, `${p2.name} に朝露を独り占めされた！ (水分0, 親密度-12)`);
             if (involvesPlayer) logs.push(`ペア結末[露]: ${p2.name} が朝露を独り占めして飲み干した！`);
           } else {
-            setEventSummary(room, p1, `朝露を奪い合い泥に消えた (水分得られず)`);
-            setEventSummary(room, p2, `朝露を奪い合い泥に消えた (水分得られず)`);
+            setEventSummary(room, p1, `朝露を奪い合い泥に消えた (水分0)`);
+            setEventSummary(room, p2, `朝露を奪い合い泥に消えた (水分0)`);
             if (involvesPlayer) logs.push(`ペア結末[露]: 朝露を奪い合い、露は泥に消えた……`);
           }
         } else if (ev.id === "p_snake_nest") {
           if (p1.eventChoice === "creep" && p2.eventChoice === "creep") {
             p1.exp += 25; p1.food = Math.min(100, p1.food + 30);
             p2.exp += 25; p2.food = Math.min(100, p2.food + 30);
-            addAffinity(p1, p2, 20);
-            setEventSummary(room, p1, `ヘビを起こさず獲物を分け合った (EXP+25, 満腹+30)`);
-            setEventSummary(room, p2, `ヘビを起こさず獲物を分け合った (EXP+25, 満腹+30)`);
+            addAffinity(p1, p2, 8);
+            setEventSummary(room, p1, `ヘビを起こさず獲物を分け合った (満腹+30, EXP+25, 親密度+8)`);
+            setEventSummary(room, p2, `ヘビを起こさず獲物を分け合った (満腹+30, EXP+25, 親密度+8)`);
             if (involvesPlayer) logs.push(`ペア結末[ヘビ]: 2匹は静かに獲物を分け合った`);
           } else if (p1.eventChoice === "push" && p2.eventChoice === "creep") {
             p1.exp += 45; p1.food = Math.min(100, p1.food + 60);
-            p2.hp -= 40; addAffinity(p2, p1, -40);
-            setEventSummary(room, p1, `${p2.name} を突き飛ばし獲物を独占！ (EXP+45, 満腹+60)`);
-            setEventSummary(room, p2, `${p1.name} に突き飛ばされ目覚めたヘビに噛まれた！ (HP-40)`);
+            p2.hp -= 40; addAffinity(p2, p1, -15);
+            setEventSummary(room, p1, `${p2.name} を突き飛ばし獲物を独占！ (満腹+60, EXP+45)`);
+            setEventSummary(room, p2, `${p1.name} に突き飛ばされヘビに噛まれた！ (HP-40, 親密度-15)`);
             if (involvesPlayer) logs.push(`ペア結末[ヘビ]: ${p1.name} が ${p2.name} を生贄にして獲物を独占！`);
           } else if (p1.eventChoice === "creep" && p2.eventChoice === "push") {
             p2.exp += 45; p2.food = Math.min(100, p2.food + 60);
-            p1.hp -= 40; addAffinity(p1, p2, -40);
-            setEventSummary(room, p2, `${p1.name} を突き飛ばし獲物を独占！ (EXP+45, 満腹+60)`);
-            setEventSummary(room, p1, `${p2.name} に突き飛ばされ目覚めたヘビに噛まれた！ (HP-40)`);
+            p1.hp -= 40; addAffinity(p1, p2, -15);
+            setEventSummary(room, p2, `${p1.name} を突き飛ばし獲物を独占！ (満腹+60, EXP+45)`);
+            setEventSummary(room, p1, `${p2.name} に突き飛ばされヘビに噛まれた！ (HP-40, 親密度-15)`);
             if (involvesPlayer) logs.push(`ペア結末[ヘビ]: ${p2.name} が ${p1.name} を生贄にして獲物を独占！`);
           } else {
             p1.hp -= 35; p2.hp -= 35;
@@ -422,17 +441,17 @@ function resolveAreaEvents(room, logs) {
         if (ev.id === "g_worm") {
           if (a.eventChoice === "coop") {
             a.food = Math.min(100, a.food + 30);
-            setEventSummary(room, a, `大ミミズを分け合って食べた（満腹+30）`);
+            setEventSummary(room, a, `大ミミズを分け合って食べた（満腹度+30, EXP+10）`);
             if (a.isPlayer) logs.push(`${a.name}: 大ミミズを分け合って食べた（満腹+30）`);
           } else {
             a.food = Math.min(100, a.food + 65); a.exp += 15;
-            setEventSummary(room, a, `大ミミズを強奪して独り占め！（満腹+65, EXP+15）`);
+            setEventSummary(room, a, `大ミミズを強奪して独り占め！（満腹度+65, EXP+15）`);
             if (a.isPlayer) logs.push(`${a.name}: 大ミミズを強奪して独り占め！（満腹+65）`);
           }
         } else if (ev.id === "s_moss" && a.eventChoice === "eat") {
           if (Math.random() < 0.65) {
             a.exp += 18; a.length += 0.2;
-            setEventSummary(room, a, `光る苔は極上の栄養だった！（EXP+18）`);
+            setEventSummary(room, a, `光る苔は極上の栄養だった！（EXP+18, 体長+0.2cm）`);
             if (a.isPlayer) logs.push(`${a.name}: 光る苔は極上の栄養だった！（EXP+18）`);
           } else {
             a.hp -= 15;
@@ -475,9 +494,11 @@ function resolvePredator(room, logs) {
   }
 }
 
+// ★アクション解決（協力捕食・カエル団子・求愛・通常捕食）
 function resolveActions(room, logs) {
   const alive = Object.values(room.actors).filter(a => a.alive);
   const matingDone = new Set();
+  const coopDone = new Set();
 
   alive.forEach(a => {
     if (!a.action) return;
@@ -491,49 +512,98 @@ function resolveActions(room, logs) {
     } else if (act === "water") {
       a.water = 100;
       a.stamina = Math.max(0, a.stamina - 5);
-      if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = "水を十分に飲んで体を潤した（水分100%全快）";
+      if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = "水を十分に飲んで体を潤した（水分全快）";
       if (a.isPlayer) logs.push(`${a.name}: 水分を十分に補給した（水分全快）`);
     } else if (act === "watch") {
       a.stamina = Math.max(0, a.stamina - 15);
       if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = "周囲を警戒し仲間を見張った（天敵察知100%）";
       if (a.isPlayer) logs.push(`${a.name}: 周囲を警戒し、天敵の接近を見張った`);
-    } else if (act === "huddle" && target && target.alive && target.zone === a.zone) {
-      addAffinity(a, target, 15);
-      a.water = Math.min(100, a.water + 20);
-      target.water = Math.min(100, target.water + 20);
-      if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `${target.name} とカエル団子で身を寄せ合った（保湿+20, 親密度UP）`;
-      if (a.isPlayer || target.isPlayer) logs.push(`🤝 ${a.name} と ${target.name} は寄り添い、乾燥を防いだ (親密度UP)`);
+    } else if (act === "huddle") {
+      // カエル団子（成立チェック）
+      if (room.coopAccepted[a.id] && room.coopAccepted[a.id].type === "huddle" && !coopDone.has(a.id)) {
+        const partner = room.actors[room.coopAccepted[a.id].partnerId];
+        coopDone.add(a.id); coopDone.add(partner.id);
+
+        a.water = Math.min(100, a.water + 25);
+        partner.water = Math.min(100, partner.water + 25);
+        addAffinity(a, partner, 8);
+
+        if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `${partner.name} と身を寄せ合いカエル団子で保湿！（水分+25, 親密度+8）`;
+        if (partner.isPlayer && room.turnSummaries[partner.id]) room.turnSummaries[partner.id].action = `${a.name} と身を寄せ合いカエル団子で保湿！（水分+25, 親密度+8）`;
+        logs.push(`🤝 ${a.name} と ${partner.name} は寄り添い、乾燥を防いだ (親密度UP)`);
+      } else if (!room.coopAccepted[a.id]) {
+        // 単独または断られた
+        if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `カエル団子の相手が見つからず、身をすくめて耐えた`;
+      }
     } else if (act === "attack" && target && target.alive && target.zone === a.zone) {
       target.hp -= 20;
-      addAffinity(target, a, -50);
-      if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `${target.name} を小突いて攻撃した！（相手HP-20）`;
+      addAffinity(target, a, -30);
+      if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `${target.name} を攻撃して排除した！（相手HP-20）`;
+      if (target.isPlayer && room.turnSummaries[target.id]) room.turnSummaries[target.id].danger = `${a.name} から攻撃を受けた！ (HP-20)`;
       if (a.isPlayer || target.isPlayer) logs.push(`⚔️ ${a.name} が ${target.name} を攻撃した！（${target.name} HP-20）`);
     } else if (act === "feed") {
-      const zData = ZONES[a.zone];
-      const prey = zData.prey.find(p => p.id === a.action.targetPreyId) || zData.prey[0];
+      // 協力捕食が成立している場合
+      if (room.coopAccepted[a.id] && room.coopAccepted[a.id].type === "feed" && !coopDone.has(a.id)) {
+        const partner = room.actors[room.coopAccepted[a.id].partnerId];
+        const preyId = room.coopAccepted[a.id].preyId;
+        const zData = ZONES[a.zone];
+        const prey = zData.prey.find(p => p.id === preyId) || zData.prey[zData.prey.length - 1];
 
-      if (prey) {
+        coopDone.add(a.id); coopDone.add(partner.id);
+
         a.stamina = Math.max(0, a.stamina - 12);
-        const myPower = (a.length * 5) + (a.weight * 3) + (a.stamina * 0.2);
-        let chance = 60 + (myPower - prey.diff) * 2;
-        if (a.trait === "大食漢") chance += 5;
-        chance = Math.max(15, Math.min(95, chance));
+        partner.stamina = Math.max(0, partner.stamina - 12);
+
+        // 2匹の捕食力を合算！
+        const p1Power = (a.length * 5) + (a.weight * 3) + (a.stamina * 0.2);
+        const p2Power = (partner.length * 5) + (partner.weight * 3) + (partner.stamina * 0.2);
+        let chance = 60 + ((p1Power + p2Power) - prey.diff) * 2;
+        chance = Math.max(30, Math.min(95, chance));
 
         if (Math.random() * 100 < chance) {
-          const eff = a.trait === "大食漢" ? 1.2 : (0.8 + Math.random() * 0.4);
-          a.food = Math.min(100, a.food + prey.food);
-          a.exp += Math.round(prey.exp * eff);
-          a.weight += 0.1 * eff;
-          a.length += 0.05 * eff;
-          if (a.isPlayer && room.turnSummaries[a.id]) {
-            room.turnSummaries[a.id].action = `【捕食成功！】${prey.name} を捕獲（満腹+${prey.food}, EXP+${Math.round(prey.exp * eff)}）`;
-          }
-          if (a.isPlayer) logs.push(`${a.name}: ${prey.name}の捕食に成功！（満腹+${prey.food}）`);
+          const halfFood = Math.round(prey.food * 0.55);
+          const halfExp = Math.round(prey.exp * 0.55);
+
+          a.food = Math.min(100, a.food + halfFood); a.exp += halfExp;
+          partner.food = Math.min(100, partner.food + halfFood); partner.exp += halfExp;
+          addAffinity(a, partner, 8);
+
+          if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `【協力捕食成功！】${partner.name} と ${prey.name} を山分け！（満腹+${halfFood}, EXP+${halfExp}, 親密度+8）`;
+          if (partner.isPlayer && room.turnSummaries[partner.id]) room.turnSummaries[partner.id].action = `【協力捕食成功！】${a.name} と ${prey.name} を山分け！（満腹+${halfFood}, EXP+${halfExp}, 親密度+8）`;
+          logs.push(`🤝 【協力狩り成功！】${a.name} と ${partner.name} が ${prey.name} を捕獲して山分け！`);
         } else {
-          if (a.isPlayer && room.turnSummaries[a.id]) {
-            room.turnSummaries[a.id].action = `【捕食失敗…】${prey.name} に逃げられた（満腹度回復なし）`;
+          if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `【協力捕食失敗】${partner.name} と挑んだが、${prey.name} に逃げられた`;
+          if (partner.isPlayer && room.turnSummaries[partner.id]) room.turnSummaries[partner.id].action = `【協力捕食失敗】${a.name} と挑んだが、${prey.name} に逃げられた`;
+        }
+      } else if (!coopDone.has(a.id)) {
+        // 単独捕食
+        const zData = ZONES[a.zone];
+        const prey = zData.prey.find(p => p.id === a.action.targetPreyId) || zData.prey[0];
+
+        if (prey) {
+          a.stamina = Math.max(0, a.stamina - 12);
+          const myPower = (a.length * 5) + (a.weight * 3) + (a.stamina * 0.2);
+          let chance = 60 + (myPower - prey.diff) * 2;
+          if (a.trait === "大食漢") chance += 5;
+          chance = Math.max(15, Math.min(95, chance));
+
+          if (Math.random() * 100 < chance) {
+            const eff = a.trait === "大食漢" ? 1.2 : (0.8 + Math.random() * 0.4);
+            const foodGain = Math.round(prey.food);
+            const expGain = Math.round(prey.exp * eff);
+            a.food = Math.min(100, a.food + foodGain);
+            a.exp += expGain;
+
+            if (a.isPlayer && room.turnSummaries[a.id]) {
+              room.turnSummaries[a.id].action = `【単独捕食成功！】${prey.name} を捕獲（満腹+${foodGain}, EXP+${expGain}）`;
+            }
+            if (a.isPlayer) logs.push(`${a.name}: ${prey.name}の捕食に成功！（満腹+${foodGain}）`);
+          } else {
+            if (a.isPlayer && room.turnSummaries[a.id]) {
+              room.turnSummaries[a.id].action = `【単独捕食失敗…】${prey.name} に逃げられた（満腹度回復なし）`;
+            }
+            if (a.isPlayer) logs.push(`${a.name}: ${prey.name}に逃げられた……`);
           }
-          if (a.isPlayer) logs.push(`${a.name}: ${prey.name}に逃げられた……`);
         }
       }
     } else if (act === "mate" && a.stage >= 6 && target && target.alive && target.zone === a.zone && target.stage >= 6 && target.gender !== a.gender && !matingDone.has(a.id) && !matingDone.has(target.id)) {
@@ -590,13 +660,12 @@ function addAffinity(p1, p2, val) {
   p2.affinity[p1.id] = Math.max(0, Math.min(100, (p2.affinity[p1.id] || 0) + val));
 }
 
-// ★代謝と天候ごとの詳細な水分変動
+// ★代謝・レベルアップ・体長・体重増加計算
 function resolveMetabolism(room, logs) {
   const alive = Object.values(room.actors).filter(a => a.alive);
 
   alive.forEach(a => {
     let foodLoss = a.trait === "大食漢" ? 11 : (a.stage >= 5 ? 10 : 8);
-    // 日照り時は代謝アップ
     if (room.weather === "日照り") foodLoss += 2;
 
     a.food -= foodLoss;
@@ -610,14 +679,12 @@ function resolveMetabolism(room, logs) {
       if (a.isPlayer) logs.push(`⚠ ${a.name}: 飢餓ダメージ！`);
     }
 
-    // 天候による水分消費計算
     let waterLoss = ZONES[a.zone].baseWaterLoss;
     if (room.weather === "雨" || room.weather === "豪雨") {
-      waterLoss = 0; // 雨・豪雨はゼロ
+      waterLoss = 0;
     } else if (room.weather === "快晴" && a.zone === 4) {
-      waterLoss *= 1.5; // 快晴草むら1.5倍
+      waterLoss *= 1.5;
     } else if (room.weather === "日照り") {
-      // 日照りは草むら2倍、水際も乾燥！
       if (a.zone === 4) waterLoss *= 2.0;
       if (a.zone === 3) waterLoss = 15;
     }
@@ -637,19 +704,41 @@ function resolveMetabolism(room, logs) {
       room.turnSummaries[a.id].metabolism = metaTxt;
     }
 
-    const reqExp = a.trait === "高代謝" ? Math.round(EXP_THRESHOLDS[a.stage] * 0.8) : EXP_THRESHOLDS[a.stage];
-    if (a.exp >= reqExp && a.stage < 6) {
-      a.stage++;
-      a.length += 0.5;
-      a.weight += 1.0;
-      if (a.isPlayer && room.turnSummaries[a.id]) {
-        room.turnSummaries[a.id].growth = `🎉 『${STAGE_NAMES[a.stage]}』へ変態を遂げた！`;
+    // ★レベルアップ判定（EXP蓄積によるレベル上昇 ＆ 体長・体重の増加）
+    let nextReq = getNextExpForLevel(a.level);
+    let leveledUp = false;
+
+    while (a.exp >= nextReq) {
+      a.exp -= nextReq;
+      a.level++;
+      leveledUp = true;
+
+      // 体長・体重の増加
+      a.length += 0.35;
+      a.weight += 0.75;
+
+      const oldStage = a.stage;
+      a.stage = getStageFromLevel(a.level);
+
+      // 変態の達成
+      if (a.stage > oldStage) {
+        if (a.isPlayer && room.turnSummaries[a.id]) {
+          room.turnSummaries[a.id].growth = `🎉 『${STAGE_NAMES[a.stage]}』へ変態達成！ (Lv.${a.level} / 体長:${a.length.toFixed(1)}cm / 体重:${a.weight.toFixed(1)}g)`;
+        }
+        if (a.isPlayer) logs.push(`🎉 ${a.name} が『${STAGE_NAMES[a.stage]}』へ変態！ (Lv.${a.level})`);
+        a.history.push(`TURN ${room.turn}: 『${STAGE_NAMES[a.stage]}』へ変態 (Lv.${a.level})`);
+        if (a.stage === 4) {
+          a.eggs = 0;
+          if (a.isPlayer) logs.push(`⚠ ${a.name}: 尾が吸収され残機消滅！【永久死亡】へ！`);
+        }
       }
-      if (a.isPlayer) logs.push(`🎉 ${a.name} が成長し、『${STAGE_NAMES[a.stage]}』へ進化した！`);
-      a.history.push(`TURN ${room.turn}: 『${STAGE_NAMES[a.stage]}』へ変態`);
-      if (a.stage === 4) {
-        a.eggs = 0;
-        if (a.isPlayer) logs.push(`⚠ ${a.name}: 尾が吸収され残機消滅！【永久死亡】へ！`);
+
+      nextReq = getNextExpForLevel(a.level);
+    }
+
+    if (leveledUp && !room.turnSummaries[a.id]?.growth) {
+      if (a.isPlayer && room.turnSummaries[a.id]) {
+        room.turnSummaries[a.id].growth = `⭐ レベルアップ！ Lv.${a.level} 到達 (体長:${a.length.toFixed(1)}cm / 体重:${a.weight.toFixed(1)}g)`;
       }
     }
 
@@ -666,9 +755,14 @@ function killActor(actor, reason, room, logs) {
   if (actor.stage < 4 && actor.eggs > 0) {
     actor.eggs--;
     actor.hp = 100; actor.food = 80; actor.water = 100; actor.stamina = 100;
-    actor.stage = 1; actor.exp = 0; actor.zone = 1;
+    actor.zone = 1;
+    // 出遅れとしてレベル-1
+    if (actor.level > 1) actor.level--;
+    actor.exp = 0;
+    actor.stage = getStageFromLevel(actor.level);
+
     if (actor.isPlayer && room.turnSummaries[actor.id]) {
-      room.turnSummaries[actor.id].growth = `🥚 命を落としたが、卵ストックから再誕生！（出遅れ発生、残機: ${actor.eggs}）`;
+      room.turnSummaries[actor.id].growth = `🥚 命を落としたが、卵ストックから再誕生！（出遅れペナルティ、残機: ${actor.eggs}）`;
     }
     if (actor.isPlayer) logs.push(`🥚 ${actor.name} は卵から再誕生！（出遅れ発生、残機: ${actor.eggs}）`);
     actor.history.push(`TURN ${room.turn}: 死亡したが卵ストックから復活`);
@@ -688,13 +782,16 @@ function finishGame(room, logs) {
   logs.push("❄️ 池の水面が凍結し、冬が訪れた。サバイバル終了！");
 
   const ranking = Object.values(room.actors).map(a => {
-    let score = (room.turn * 100) + (a.offspringCount * 50);
+    let score = (room.turn * 100) + (a.offspringCount * 50) + (a.level * 20);
     if (a.alive) score += 1500;
     return {
       id: a.id,
       name: a.name,
       isPlayer: a.isPlayer,
       gender: a.gender,
+      level: a.level,
+      length: a.length,
+      weight: a.weight,
       alive: a.alive,
       score: score,
       offspring: a.offspringCount,
@@ -719,6 +816,7 @@ function broadcastState(room, logs = [], ranking = null) {
       activePredatorAnimation: room.activePredatorAnimation,
       eventsByZone: room.eventsByZone,
       pairTargets: room.pairTargets,
+      coopRequests: room.coopRequests,
       turnSummaries: room.turnSummaries,
       actors: room.actors,
       isFinished: room.isFinished,
@@ -766,6 +864,72 @@ wss.on('connection', (ws) => {
         const room = rooms[myRoomId];
         if (room && room.hostId === myActorId && room.status === "waiting") {
           startRoomGame(room);
+        }
+      }
+
+      // ★協力申請の送信（プレイヤーまたはNPC宛て）
+      if (data.type === "SEND_COOP_REQUEST" && myRoomId) {
+        const room = rooms[myRoomId];
+        if (room && room.status === "playing") {
+          const fromActor = room.actors[myActorId];
+          const targetActor = room.actors[data.targetId];
+
+          if (fromActor && targetActor && fromActor.alive && targetActor.alive && fromActor.zone === targetActor.zone) {
+            if (targetActor.isPlayer) {
+              // プレイヤー宛て：申請キューに登録
+              room.coopRequests[targetActor.id] = {
+                fromId: fromActor.id,
+                fromName: fromActor.name,
+                type: data.coopType, // "huddle" または "feed"
+                preyId: data.preyId
+              };
+              broadcastState(room);
+            } else {
+              // ★NPC宛て：即座にNPCが受託するか判定！
+              const aff = targetActor.affinity[fromActor.id] || 0;
+              let acceptChance = 0.5;
+              if (targetActor.personality === "温厚") acceptChance = 0.85;
+              if (targetActor.personality === "利己") acceptChance = 0.35;
+              if (aff >= 40) acceptChance += 0.3;
+
+              if (Math.random() < acceptChance) {
+                // NPCが受託！
+                room.coopAccepted[fromActor.id] = { partnerId: targetActor.id, type: data.coopType, preyId: data.preyId };
+                room.coopAccepted[targetActor.id] = { partnerId: fromActor.id, type: data.coopType, preyId: data.preyId };
+                ws.send(JSON.stringify({ type: "COOP_RESPONSE_NOTIFY", accepted: true, targetName: targetActor.name }));
+              } else {
+                // NPCが拒否
+                addAffinity(targetActor, fromActor, -6);
+                ws.send(JSON.stringify({ type: "COOP_RESPONSE_NOTIFY", accepted: false, targetName: targetActor.name }));
+              }
+            }
+          }
+        }
+      }
+
+      // ★協力申請への応答（受諾 / 拒否）
+      if (data.type === "RESPOND_COOP" && myRoomId) {
+        const room = rooms[myRoomId];
+        if (room && room.status === "playing") {
+          const req = room.coopRequests[myActorId];
+          if (req) {
+            const fromActor = room.actors[req.fromId];
+            const toActor = room.actors[myActorId];
+
+            if (data.accept && fromActor && toActor) {
+              // 受託！お互いの行動を協力に上書き
+              room.coopAccepted[fromActor.id] = { partnerId: toActor.id, type: req.type, preyId: req.preyId };
+              room.coopAccepted[toActor.id] = { partnerId: fromActor.id, type: req.type, preyId: req.preyId };
+
+              toActor.action = { moveZone: toActor.zone, act: req.type, targetId: fromActor.id, targetPreyId: req.preyId };
+              addAffinity(fromActor, toActor, 8);
+            } else if (fromActor && toActor) {
+              // 拒否：親密度が少し下がる
+              addAffinity(fromActor, toActor, -6);
+            }
+            delete room.coopRequests[myActorId];
+            broadcastState(room);
+          }
         }
       }
 
