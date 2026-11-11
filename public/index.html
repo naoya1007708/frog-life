@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
+<!-- キャッシュを無効化して常に最新コードを読み込ませる -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>FROG LIFE</title>
 <style>
   :root {
@@ -74,13 +78,6 @@
   .minimap-zone-title { font-weight: bold; font-size: 9px; color: #88bb88; display: flex; justify-content: space-between; }
   .minimap-actors-count { font-size: 9px; font-weight: bold; color: #ffea77; }
 
-  .actor-dot { font-size: 9px; padding: 1px 4px; border-radius: 2px; cursor: pointer; }
-  .high-affinity {
-    border: 2px solid var(--accent-pink) !important;
-    color: #ffb3e6 !important;
-    font-weight: bold;
-  }
-
   .status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 4px; }
   .bar-box { background: #0a110c; border: 1px solid #223624; border-radius: 3px; padding: 3px; font-size: 10px; text-align: center; }
 
@@ -98,6 +95,7 @@
   .player-list { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
   .p-badge { padding: 2px 6px; border-radius: 3px; font-size: 10px; background: #263628; border: 1px solid #445c47; cursor: pointer; }
   .p-ready { border-color: #88cc88; background: #28542c; color: #aaffaa; }
+  .high-affinity { border: 2px solid var(--accent-pink) !important; color: #ffb3e6 !important; font-weight: bold; }
 
   #log-box { height: 75px; overflow-y: scroll; font-size: 10px; line-height: 1.4; background: #0a110c; padding: 6px; border-radius: 4px; margin-top: 4px; }
 
@@ -451,7 +449,7 @@
             相手: ---
           </span>
         </div>
-        <div id="ev-desc" style="color:#ccc; margin-top:2px;">読み込み中...</div>
+        <div id="ev-desc" style="color:#ccc; margin-top:2px;">周囲の様子をうかがっている……</div>
         <select id="ev-choice-sel" style="margin-top:4px;"></select>
       </div>
 
@@ -543,7 +541,7 @@ const PREY_MASTER = {
   4: [
     { id: "cricket", name: "コオロギ", diff: 50, food: 55, exp: 35 },
     { id: "grasshopper", name: "大型バッタ", diff: 65, food: 65, exp: 45 },
-    { id: "earthworm", name: "巨大ミミズ (大物)", diff: 85, food: 85, exp: 35 }
+    { id: "earthworm", name: "巨大ミミズ (大物)", diff: 85, food: 85, exp: 60 }
   ]
 };
 
@@ -802,14 +800,16 @@ function showTraitModal(state) {
   document.getElementById("trait-modal").style.display = "flex";
 }
 
-// ★修正：モーダルを閉じた直後に、直ちにゲーム画面を表示＆初期化！
+// ★修正：モーダルを閉じた直後に必ず初期化して描画を強制実行する！
 function closeTraitModal() {
   document.getElementById("trait-modal").style.display = "none";
   const isLandscape = window.matchMedia("(orientation: landscape) and (max-height: 520px)").matches;
   document.getElementById("game-screen").style.display = isLandscape ? "grid" : "block";
 
-  if (lastState) {
-    lastRenderedTurn = -1; // 強制再描画
+  if (lastState && lastState.actors && lastState.actors[myActorId]) {
+    const me = lastState.actors[myActorId];
+    updateMoveSelect(me.stage || 1, parseInt(me.zone, 10) || 1);
+    onMoveSelectChange();
     renderGameUI(lastState);
   }
 }
@@ -1020,7 +1020,7 @@ function renderGameUI(state) {
 
       const myZoneSafe = (me.zone !== undefined && me.zone !== null) ? parseInt(me.zone, 10) : 1;
 
-      // セレクトボックスが空なら確実に再初期化する
+      // ★セレクトボックスが空なら確実に再初期化する
       const moveSel = document.getElementById("move-sel");
       if (lastRenderedTurn !== state.turn || moveSel.options.length === 0) {
         updateMoveSelect(me.stage || 1, myZoneSafe);
@@ -1081,6 +1081,7 @@ function renderMinimap(state, myCurrentZone) {
     if (z === myCurrentZone) zoneBox.classList.add("active-zone");
     else zoneBox.classList.remove("active-zone");
 
+    // 文字列・数値を吸収して集計
     const here = Object.values(state.actors).filter(a => a.alive && parseInt(a.zone, 10) === z);
     cntEl.innerText = `${here.length}匹`;
   }
@@ -1092,7 +1093,7 @@ function updateMoveSelect(myStage, currentZone) {
   const previousVal = sel.value;
   sel.innerHTML = "";
 
-  const cZone = parseInt(currentZone, 10);
+  const cZone = parseInt(currentZone, 10) || 1;
   const candidates = [cZone - 1, cZone, cZone + 1];
 
   candidates.forEach(z => {
@@ -1281,7 +1282,6 @@ function updateCoopChanceDisplay() {
   badge.style.color = chance >= 70 ? "#77ff77" : (chance >= 40 ? "#ffff77" : "#ff7777");
 }
 
-// エリアイベントの確実な初期化
 function renderAreaEventCard(state, me) {
   if (!me) return;
   const myZ = parseInt(me.zone, 10) || 1;
