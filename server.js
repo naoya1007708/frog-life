@@ -12,7 +12,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ==================== 定数・マスターデータ ====================
 const MAX_TURNS = 35;
-const TURN_DURATION = 120; // ★思考時間を2分（120秒）に設定
+const TURN_DURATION = 120; // 思考時間2分
 
 const ZONES = [
   { id: 0, name: "① 水底・泥地", minStage: 1, baseWaterLoss: 0, prey: [
@@ -44,38 +44,36 @@ const EXP_THRESHOLDS = [0, 10, 25, 45, 75, 115, 9999];
 const NPC_PERSONALITIES = ["温厚", "臆病", "利己", "獰猛", "気まぐれ"];
 const TRAITS = ["頑強", "大食漢", "身軽", "高代謝", "慎重"];
 
-// ==================== エリア別ペアイベント＆共通イベントの豊富なバリエーション ====================
+// ★天候プール（全5種）
+const WEATHER_TYPES = ["快晴", "曇り", "雨", "日照り", "豪雨"];
+
+// エリア別イベントプール
 const AREA_EVENTS = {
   global: [
     { id: "g_rain", title: "【全体】恵みのゲリラ豪雨", desc: "池全体に激しいスコール！陸地が潤い、虫たちが地面に落ちてきた！", choices: [{ id: "rush", text: "🦗 陸へ駆け上がって乱獲" }, { id: "stay", text: "💧 水中で安全に雨宿り" }] },
     { id: "g_heron", title: "【全体】上空にサギの旋回！", desc: "巨大なアオサギが池を見下ろしている。どう生き延びる？", choices: [{ id: "threat", text: "👥 みんなで膨らんで威嚇" }, { id: "hide", text: "🙈 泥の底へ潜って隠れる" }] }
   ],
-  // ゾーン4（草むら）
   4: [
     { id: "p_snake_nest", type: "pair", title: "【草むら】ヘビの寝床の獲物", desc: "眠る大蛇のすぐ脇にバッタの卵塊を発見！音を立てればヘビが目覚める！", choices: [{ id: "creep", text: "🤫 忍び足で分け合う (協調)" }, { id: "push", text: "⚡ 相手を突き飛ばして逃走 (非情)" }] },
-    { id: "p_dew", type: "pair", title: "【草むら】朝露の分け合い", desc: "快晴の暑さ。草の葉の先端に大粒の朝露が1滴だけ残っている……", choices: [{ id: "share", text: "💧 半分ずつ吸い合う (協調)" }, { id: "drink_all", text: "⚡ 突き飛ばして一気飲み (独占)" }] },
+    { id: "p_dew", type: "pair", title: "【草むら】朝露の分け合い", desc: "草の先端に大粒の朝露が1滴だけ残っている……", choices: [{ id: "share", text: "💧 半分ずつ吸い合う (協調)" }, { id: "drink_all", text: "⚡ 突き飛ばして一気飲み (独占)" }] },
     { id: "p_mantis", type: "pair", title: "【草むら】巨大オオカマキリ", desc: "草むらで凶暴なカマキリと鉢合わせ！2匹で威嚇すれば撃退できるが……？", choices: [{ id: "threat", text: "👥 2匹で同時に威嚇する" }, { id: "bait", text: "🏃 相手を盾にして逃走する" }] },
-    { id: "p_dry_huddle", type: "pair", title: "【草むら】日照りの吸湿", desc: "日差しで皮膚が乾いていく！相手の水分を奪うか、分け合うか？", choices: [{ id: "huddle", text: "🤝 抱き合って保湿する" }, { id: "suck", text: "🧛 相手の水分を吸い取る" }] }
+    { id: "p_dry_huddle", type: "pair", title: "【草むら】酷暑の吸湿", desc: "強烈な日差しで皮膚が乾いていく！相手の水分を奪うか、分け合うか？", choices: [{ id: "huddle", text: "🤝 抱き合って保湿する" }, { id: "suck", text: "🧛 相手の水分を吸い取る" }] }
   ],
-  // ゾーン3（水際・湿地）
   3: [
     { id: "p_log_entry", type: "pair", title: "【水際】倒木シェルターの定員", desc: "サギ接近！倒木の狭い空洞は1匹分しかない！押し合うか、譲るか？", choices: [{ id: "squeeze", text: "🤝 半分ずつ押し込み合う" }, { id: "kick_out", text: "🦶 相手を外へ蹴り出す" }] },
     { id: "p_mud_step", type: "pair", title: "【水際】泥沼の足場", desc: "深い泥に足を取られて動けない！どちらが先に脱出するか？", choices: [{ id: "give_back", text: "🪜 背中を踏み台に貸す (利他)" }, { id: "step_on", text: "🦶 相手を踏み台にして跳ぶ (利用)" }] },
     { id: "g_worm", type: "global_area", title: "【水際】流れてきた大ミミズ", desc: "岸辺の泥に巨大な獲物が漂着！山分けするか、独り占めを狙うか？", choices: [{ id: "coop", text: "🤝 山分けを提案" }, { id: "betray", text: "⚔️ 独り占めを狙う" }] }
   ],
-  // ゾーン2（水面・浅瀬）
   2: [
     { id: "p_leaf", type: "pair", title: "【水面】浮き草の定員", desc: "サギ接近中！1匹しか乗れない浮き葉の上で鉢合わせた。重みで沈む前にどうする？", choices: [{ id: "coop", text: "🤝 譲り合って片足で耐える" }, { id: "kick", text: "🦶 相手を水中に蹴り落とす" }] },
     { id: "p_ripple_decoy", type: "pair", title: "【水面】波紋のデコイ", desc: "サギが水面を凝視している。水面を激しく叩けばサギの気を引けるが……？", choices: [{ id: "freeze", text: "🧘 じっと息を潜める" }, { id: "splash", text: "💦 相手の周りに波を立てる" }] },
     { id: "p_sink_strider", type: "pair", title: "【水面】沈むアメンボの奪い合い", desc: "溺れかけた高栄養のアメンボが浮いている！", choices: [{ id: "tear", text: "🍴 半分ずつちぎる" }, { id: "swallow", text: "⚡ 丸呑みダッシュ" }] }
   ],
-  // ゾーン1（水中・水草）
   1: [
     { id: "p_weed_trap", type: "pair", title: "【水中】水草に絡まった仲間", desc: "相手が水草に尾びれを絡め取られて動けない！助けるか、襲うか？", choices: [{ id: "rescue", text: "✂️ 水草を噛みちぎって助ける" }, { id: "cannibal", text: "😈 動けない相手の尾をかじる" }] },
     { id: "p_wriggler_swarm", type: "pair", title: "【水中】ボウフラの密集地", desc: "水草の影にボウフラの群れ！分け合うか独占するか？", choices: [{ id: "share_feed", text: "🤝 交代で食べる" }, { id: "chase_away", text: "⚔️ 相手を追い払って独占" }] },
     { id: "s_skin", type: "personal", title: "【水中】古い皮膚の脱皮", desc: "水草の間で古い皮が剥がれてきた。栄養にするか？", choices: [{ id: "eat_skin", text: "🍴 口で食べて栄養にする" }, { id: "discard", text: "💨 そのまま脱ぎ捨てる" }] }
   ],
-  // ゾーン0（水底・泥地）
   0: [
     { id: "p_yago_ambush", type: "pair", title: "【水底】ヤゴの巣穴の発見", desc: "泥の底にヤゴが潜んでいるのを2匹が同時に気づいた！", choices: [{ id: "back_off", text: "🤫 目配せして静かに後退" }, { id: "push_bait", text: "⚡ 相手をヤゴの前へ突き飛ばす" }] },
     { id: "p_mud_detritus", type: "pair", title: "【水底】泥底の有機物の塊", desc: "泥の奥底に高栄養なデトリタスが埋もれている！", choices: [{ id: "dig_coop", text: "⛏️ 2匹で掘り起こして山分け" }, { id: "mud_blind", text: "💨 泥を巻き上げて相手の目をくらます" }] },
@@ -100,7 +98,7 @@ function createNewRoom(roomId) {
     actors: {},
     eventsByZone: {},
     pairTargets: {},
-    turnSummaries: {}, // ★プレイヤーごとの毎ターン結果サマリー
+    turnSummaries: {},
     isFinished: false,
     timer: null
   };
@@ -201,7 +199,6 @@ function resolveTurn(room) {
 
   const alive = Object.values(room.actors).filter(a => a.alive);
 
-  // 初期サマリーオブジェクトの準備
   alive.filter(a => a.isPlayer).forEach(p => {
     room.turnSummaries[p.id] = {
       turn: room.turn,
@@ -229,10 +226,12 @@ function resolveTurn(room) {
   // 3. エリア連動イベント解決
   resolveAreaEvents(room, logs);
 
-  // 4. 天敵襲来
-  if (room.nextPredator) {
+  // 4. 天敵襲来（※豪雨時は天敵が隠れて襲来しない）
+  if (room.nextPredator && room.weather !== "豪雨") {
     room.activePredatorAnimation = room.nextPredator;
     resolvePredator(room, logs);
+  } else if (room.weather === "豪雨") {
+    logs.push("⛈️ 激しい豪雨のため、天敵たちは身を隠している。");
   }
 
   // 5. アクション解決
@@ -252,7 +251,14 @@ function resolveTurn(room) {
   room.turn++;
   room.timeLeft = TURN_DURATION;
   room.weather = room.forecast;
-  room.forecast = Math.random() < 0.4 ? "雨" : (Math.random() < 0.75 ? "快晴" : "曇り");
+
+  // ★天候抽選（全5種）
+  const wRoll = Math.random();
+  if (wRoll < 0.25) room.forecast = "雨";
+  else if (wRoll < 0.50) room.forecast = "快晴";
+  else if (wRoll < 0.75) room.forecast = "曇り";
+  else if (wRoll < 0.90) room.forecast = "日照り";
+  else room.forecast = "豪雨";
 
   if (Math.random() < 0.35) {
     room.nextPredator = Math.random() < 0.6 ? "yago" : "heron";
@@ -274,7 +280,7 @@ function resolveTurn(room) {
 function decideNpcTurn(npc, room) {
   let tz = npc.zone;
   if (npc.stage >= 5 && Math.random() < 0.4) {
-    tz = room.weather === "雨" ? 4 : 3;
+    tz = (room.weather === "雨" || room.weather === "豪雨") ? 4 : 3;
   } else if (npc.stage < 4) {
     tz = Math.random() < 0.6 ? 1 : 0;
   }
@@ -292,7 +298,7 @@ function decideNpcTurn(npc, room) {
   } else if (npc.stage >= 6 && Math.random() < 0.4) {
     const partner = Object.values(room.actors).find(o => o.alive && o.id !== npc.id && o.zone === tz && o.stage >= 6 && o.gender !== npc.gender);
     if (partner) { act = "mate"; targetId = partner.id; }
-  } else if (room.weather === "快晴" && tz >= 4 && Math.random() < 0.5) {
+  } else if ((room.weather === "快晴" || room.weather === "日照り") && tz >= 4 && Math.random() < 0.5) {
     const buddy = Object.values(room.actors).find(o => o.alive && o.id !== npc.id && o.zone === tz);
     if (buddy) { act = "huddle"; targetId = buddy.id; }
   }
@@ -337,7 +343,6 @@ function resolveAreaEvents(room, logs) {
 
         const involvesPlayer = p1.isPlayer || p2.isPlayer;
 
-        // イベント判定とサマリー記録
         if (ev.id === "p_leaf") {
           if (p1.eventChoice === "coop" && p2.eventChoice === "coop") {
             addAffinity(p1, p2, 20);
@@ -585,11 +590,15 @@ function addAffinity(p1, p2, val) {
   p2.affinity[p1.id] = Math.max(0, Math.min(100, (p2.affinity[p1.id] || 0) + val));
 }
 
+// ★代謝と天候ごとの詳細な水分変動
 function resolveMetabolism(room, logs) {
   const alive = Object.values(room.actors).filter(a => a.alive);
 
   alive.forEach(a => {
-    const foodLoss = a.trait === "大食漢" ? 11 : (a.stage >= 5 ? 10 : 8);
+    let foodLoss = a.trait === "大食漢" ? 11 : (a.stage >= 5 ? 10 : 8);
+    // 日照り時は代謝アップ
+    if (room.weather === "日照り") foodLoss += 2;
+
     a.food -= foodLoss;
     let metaTxt = `満腹度-${foodLoss}`;
 
@@ -601,10 +610,19 @@ function resolveMetabolism(room, logs) {
       if (a.isPlayer) logs.push(`⚠ ${a.name}: 飢餓ダメージ！`);
     }
 
+    // 天候による水分消費計算
     let waterLoss = ZONES[a.zone].baseWaterLoss;
-    if (room.weather === "雨") waterLoss = 0;
+    if (room.weather === "雨" || room.weather === "豪雨") {
+      waterLoss = 0; // 雨・豪雨はゼロ
+    } else if (room.weather === "快晴" && a.zone === 4) {
+      waterLoss *= 1.5; // 快晴草むら1.5倍
+    } else if (room.weather === "日照り") {
+      // 日照りは草むら2倍、水際も乾燥！
+      if (a.zone === 4) waterLoss *= 2.0;
+      if (a.zone === 3) waterLoss = 15;
+    }
+
     if (a.trait === "頑強") waterLoss *= 0.6;
-    if (room.weather === "快晴" && a.zone === 4) waterLoss *= 1.5;
     a.water -= Math.round(waterLoss);
     if (waterLoss > 0) metaTxt += ` / 水分-${Math.round(waterLoss)}`;
 

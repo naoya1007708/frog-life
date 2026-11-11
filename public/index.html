@@ -33,7 +33,7 @@
   button:disabled { background: #1c261e; color: #667768; border-color: #2a382c; cursor: not-allowed; }
 
   select, input {
-    width: 100%; padding: 9px; background: #0c140d; border: 1px solid var(--border-color);
+    width: 100%; padding: 8px; background: #0c140d; border: 1px solid var(--border-color);
     border-radius: 4px; font-family: inherit; font-size: 12px; color: #fff; box-sizing: border-box; margin-top: 3px;
   }
 
@@ -50,14 +50,14 @@
   }
 
   /* 画面構成 */
-  .view-container { display: flex; gap: 6px; width: 100%; height: 240px; }
+  .view-container { display: flex; gap: 6px; width: 100%; height: 230px; }
   .screen-frame {
     flex: 1.8; background: #000; border-radius: 6px; overflow: hidden;
     border: 2px solid #233626; position: relative;
   }
   canvas#retroCanvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
 
-  /* ミニマップ（タップ可能） */
+  /* ミニマップ */
   .minimap-panel {
     flex: 1.2; background: #0d170e; border: 2px solid var(--border-color);
     border-radius: 6px; padding: 4px; display: flex; flex-direction: column; justify-content: space-between;
@@ -65,7 +65,7 @@
   }
   .minimap-zone {
     border-radius: 3px; padding: 3px 5px; border: 1px solid #1f3022;
-    background: #142115; min-height: 38px; display: flex; flex-direction: column; justify-content: space-between;
+    background: #142115; min-height: 36px; display: flex; flex-direction: column; justify-content: space-between;
     cursor: pointer; transition: 0.15s;
   }
   .minimap-zone:hover { background: #1f3622; border-color: #3d6e42; }
@@ -75,11 +75,8 @@
   .minimap-zone-title { font-weight: bold; font-size: 9px; color: #88bb88; display: flex; justify-content: space-between; }
   .minimap-actors-count { font-size: 8px; color: #ffea77; }
 
-  /* アクターバッジと親密度ピンク枠 */
+  /* 親密度ピンク枠 */
   .actor-dot { font-size: 9px; padding: 1px 4px; border-radius: 2px; cursor: pointer; }
-  .dot-me { background: #2f7a35; color: #fff; font-weight: bold; border: 1px solid #77dd77; }
-  .dot-pl { background: #1e455c; color: #aaddff; border: 1px solid #4da6ff; }
-  .dot-npc { background: #222; color: #888; border: 1px solid #444; }
   .high-affinity {
     border: 2px solid var(--accent-pink) !important;
     color: #ffb3e6 !important;
@@ -87,8 +84,19 @@
     box-shadow: 0 0 5px rgba(255, 102, 204, 0.5);
   }
 
+  /* ステータス・EXPゲージバー */
   .status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 4px; }
   .bar-box { background: #0a110c; border: 1px solid #223624; border-radius: 3px; padding: 3px; font-size: 10px; text-align: center; }
+
+  /* ★EXPゲージ */
+  .exp-container {
+    background: #0a110c; border: 1px solid #223624; border-radius: 3px;
+    height: 7px; overflow: hidden; margin-top: 2px; position: relative;
+  }
+  .exp-fill {
+    height: 100%; background: linear-gradient(90deg, #3d8f45, #5cd65c);
+    width: 0%; transition: width 0.3s;
+  }
 
   .event-card { background: #1c2b1e; border-left: 3px solid var(--accent-gold); padding: 8px; border-radius: 0 4px 4px 0; font-size: 11px; }
 
@@ -96,9 +104,9 @@
   .p-badge { padding: 2px 6px; border-radius: 3px; font-size: 10px; background: #263628; border: 1px solid #445c47; cursor: pointer; }
   .p-ready { border-color: #88cc88; background: #28542c; color: #aaffaa; }
 
-  #log-box { height: 80px; overflow-y: scroll; font-size: 10px; line-height: 1.4; background: #0a110c; padding: 6px; border-radius: 4px; margin-top: 4px; }
+  #log-box { height: 75px; overflow-y: scroll; font-size: 10px; line-height: 1.4; background: #0a110c; padding: 6px; border-radius: 4px; margin-top: 4px; }
 
-  /* モーダル共通スタイル */
+  /* モーダル */
   .modal-overlay {
     display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(3, 7, 4, 0.95); z-index: 9999; justify-content: center; align-items: center;
@@ -114,9 +122,7 @@
     color: var(--accent-gold); font-size: 16px; font-weight: bold; padding: 5px 14px;
     border-radius: 6px; letter-spacing: 2px; margin: 6px 0;
   }
-  .gender-badge {
-    display: inline-block; font-size: 13px; font-weight: bold; padding: 3px 10px; border-radius: 4px;
-  }
+  .gender-badge { display: inline-block; font-size: 13px; font-weight: bold; padding: 3px 10px; border-radius: 4px; }
   .gender-male { background: #19405c; color: #7ec5f5; border: 1px solid #4ea3dd; }
   .gender-female { background: #5c1938; color: #f57eb8; border: 1px solid #dd4e97; }
 
@@ -127,7 +133,7 @@
   .plus-text { color: #88ff88; font-weight: bold; }
   .minus-text { color: #ff8888; font-weight: bold; }
 
-  /* ルールブック用タブスタイル */
+  /* ルールブックタブ */
   .rule-tab-bar { display: flex; gap: 4px; margin-bottom: 8px; }
   .rule-tab-btn {
     flex: 1; padding: 6px 2px; font-size: 10px; background: #142115; border: 1px solid #2c422f;
@@ -136,11 +142,27 @@
   .rule-tab-btn.active { background: #2f6e36; color: #fff; font-weight: bold; border-color: var(--accent); }
   .rule-content-box {
     background: #0d170f; border: 1px solid #29402c; border-radius: 6px;
-    padding: 10px; font-size: 11px; line-height: 1.6; text-align: left; max-height: 260px; overflow-y: scroll;
+    padding: 10px; font-size: 11px; line-height: 1.6; text-align: left; max-height: 250px; overflow-y: scroll;
   }
 
   .rank-row { display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #2e4531; font-size: 11px; }
   .history-box { background: #0d170f; padding: 8px; font-size: 11px; line-height: 1.5; border-radius: 4px; max-height: 150px; overflow-y: scroll; margin-top: 6px; text-align: left; }
+
+  /* ================= ★ スマホ横画面（Landscape）対応スタイル ================= */
+  @media (orientation: landscape) and (max-height: 520px) {
+    body { padding: 4px; }
+    .app-frame { max-width: 98vw; }
+    #game-screen {
+      display: none;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 8px;
+      align-items: start;
+    }
+    .view-container { height: 210px; }
+    .panel { padding: 6px 8px; }
+    #log-box { height: 60px; }
+    .rule-content-box { max-height: 160px; }
+  }
 </style>
 </head>
 <body>
@@ -151,14 +173,12 @@
   <div id="lobby-screen" class="panel">
     <div style="text-align:center;">
       <h2 style="color:var(--accent); margin:0 0 2px 0;">🐸 FROG LIFE</h2>
-      <div style="font-size:11px; color:#aaa; margin-bottom:6px;">ターン制 生態系サバイバル（全35ターン / 1T: 2分）</div>
-      <!-- ★ロビーのルールブックボタン -->
+      <div style="font-size:11px; color:#aaa; margin-bottom:6px;">ターン制 生態系サバイバル（全35T / 1T: 2分）</div>
       <button class="secondary" style="padding:6px; font-size:11px; margin-bottom:10px; border-color:var(--accent-gold); color:var(--accent-gold);" onclick="openRulebookModal()">
         📖 遊び方・ルールブックを開く
       </button>
     </div>
 
-    <!-- 入室前 -->
     <div id="lobby-join-area">
       <label style="font-size:11px;">あなたの名前:</label>
       <input type="text" id="user-name" value="アマガエル" maxlength="8">
@@ -171,7 +191,6 @@
       </div>
     </div>
 
-    <!-- 入室後（待機ロビー） -->
     <div id="lobby-wait-area" style="display:none; text-align:center;">
       <div class="room-tag" id="wait-room-tag">ROOM #----</div>
       <div style="font-size:11px; color:#aaa; margin-bottom:8px;">全員が集まるまで待機しています</div>
@@ -225,7 +244,7 @@
   </div>
 
 
-  <!-- ================= ★ ターン解決サマリーモーダル（新設） ================= -->
+  <!-- ================= ターン解決サマリーモーダル ================= -->
   <div id="turn-summary-modal" class="modal-overlay">
     <div class="modal-card">
       <div style="font-size:11px; color:var(--accent-gold); font-weight:bold;" id="sum-turn-title">【 TURN 1 生存結果 】</div>
@@ -255,17 +274,16 @@
   </div>
 
 
-  <!-- ================= ★ ルールブックモーダル（新設） ================= -->
+  <!-- ================= ★ ルールブックモーダル（天候詳細つき） ================= -->
   <div id="rulebook-modal" class="modal-overlay">
     <div class="modal-card" style="max-width:420px;">
       <div style="font-size:14px; font-weight:bold; color:var(--accent-gold); margin-bottom:8px;">
         📖 FROG LIFE - 生存手引書 (ルール)
       </div>
 
-      <!-- タブ切り替えバー -->
       <div class="rule-tab-bar">
         <button class="rule-tab-btn active" onclick="switchRuleTab(1)" id="rtab-1">①勝利</button>
-        <button class="rule-tab-btn" onclick="switchRuleTab(2)" id="rtab-2">②ゾーン</button>
+        <button class="rule-tab-btn" onclick="switchRuleTab(2)" id="rtab-2">②ゾーン・天候</button>
         <button class="rule-tab-btn" onclick="switchRuleTab(3)" id="rtab-3">③心理戦</button>
         <button class="rule-tab-btn" onclick="switchRuleTab(4)" id="rtab-4">④成長・残機</button>
       </div>
@@ -277,7 +295,7 @@
   </div>
 
 
-  <!-- ================= ★ エリア内カエル一覧モーダル（新設） ================= -->
+  <!-- ================= エリア内カエル一覧モーダル ================= -->
   <div id="zone-actors-modal" class="modal-overlay">
     <div class="modal-card">
       <div style="font-size:13px; font-weight:bold; color:var(--accent);" id="zam-zone-title">⑤ 草むら・陸地にいるカエル</div>
@@ -317,138 +335,153 @@
   </div>
 
 
-  <!-- ================= 画面2：ゲーム本編 ================= -->
+  <!-- ================= 画面2：ゲーム本編（横画面時は2カラム分割） ================= -->
   <div id="game-screen">
-    <div class="panel" style="padding:6px 10px;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="txt-room-id" style="color:var(--accent); font-weight:bold; font-size:11px;">池: #----</span>
-        <span id="txt-turn" style="font-weight:bold; font-size:11px;">TURN 1</span>
-        <span id="txt-timer" style="color:#ffaa66; font-weight:bold; font-size:12px;">120秒</span>
-        <!-- ★対戦中のルールブックボタン -->
-        <button class="secondary" style="width:auto; padding:3px 8px; font-size:10px; border-color:var(--accent-gold); color:var(--accent-gold);" onclick="openRulebookModal()">
-          📖 ルール
+    
+    <!-- カラム左（横画面時）：ビジュアル ＆ ミニマップ -->
+    <div id="col-visual" style="display:flex; flex-direction:column; gap:6px;">
+      <div class="panel" style="padding:6px 10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span id="txt-room-id" style="color:var(--accent); font-weight:bold; font-size:11px;">池: #----</span>
+          <span id="txt-turn" style="font-weight:bold; font-size:11px;">TURN 1</span>
+          <span id="txt-timer" style="color:#ffaa66; font-weight:bold; font-size:12px;">120秒</span>
+          <button class="secondary" style="width:auto; padding:2px 8px; font-size:10px; border-color:var(--accent-gold); color:var(--accent-gold);" onclick="openRulebookModal()">
+            📖 ルール
+          </button>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:3px;">
+          <span id="txt-weather">☀️ 快晴</span>
+          <span id="txt-alive">生存: 25/25匹</span>
+        </div>
+        <div id="txt-alert" style="color:var(--danger); font-weight:bold; font-size:10px; margin-top:2px;">
+          気配: 周囲は静かだ……
+        </div>
+      </div>
+
+      <div class="view-container">
+        <div class="screen-frame">
+          <canvas id="retroCanvas" width="130" height="150"></canvas>
+        </div>
+
+        <div class="minimap-panel" id="minimap-box">
+          <div class="minimap-zone" id="mm-z-4" onclick="openZoneActorsModal(4)">
+            <div class="minimap-zone-title"><span>⑤ 草むら</span><span class="minimap-actors-count" id="mm-cnt-4">0匹</span></div>
+            <div style="font-size:8px; color:#aaa;">タップで詳細</div>
+          </div>
+          <div class="minimap-zone" id="mm-z-3" onclick="openZoneActorsModal(3)">
+            <div class="minimap-zone-title"><span>④ 水際</span><span class="minimap-actors-count" id="mm-cnt-3">0匹</span></div>
+            <div style="font-size:8px; color:#aaa;">タップで詳細</div>
+          </div>
+          <div class="minimap-zone" id="mm-z-2" onclick="openZoneActorsModal(2)">
+            <div class="minimap-zone-title"><span>③ 水面</span><span class="minimap-actors-count" id="mm-cnt-2">0匹</span></div>
+            <div style="font-size:8px; color:#aaa;">タップで詳細</div>
+          </div>
+          <div class="minimap-zone" id="mm-z-1" onclick="openZoneActorsModal(1)">
+            <div class="minimap-zone-title"><span>② 水中</span><span class="minimap-actors-count" id="mm-cnt-1">0匹</span></div>
+            <div style="font-size:8px; color:#aaa;">タップで詳細</div>
+          </div>
+          <div class="minimap-zone" id="mm-z-0" onclick="openZoneActorsModal(0)">
+            <div class="minimap-zone-title"><span>① 水底</span><span class="minimap-actors-count" id="mm-cnt-0">0匹</span></div>
+            <div style="font-size:8px; color:#aaa;">タップで詳細</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- カラム右（横画面時）：ステータス ＆ 操作 -->
+    <div id="col-controls" style="display:flex; flex-direction:column; gap:6px;">
+      <!-- プレイヤーステータス（EXPゲージ付き！） -->
+      <div class="panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+          <div>
+            <strong id="txt-stage-name" style="color:var(--accent);">第1段階: オタマジャクシ</strong>
+            <span id="txt-gender-icon" style="font-weight:bold; margin-left:2px;">♂</span>
+          </div>
+          <span id="txt-trait-badge" onclick="showStatusDetailModal()" style="background:#233b28; border:1px solid var(--accent-gold); color:var(--accent-gold); padding:2px 6px; border-radius:3px; font-weight:bold; cursor:pointer;">
+            特徴: ---
+          </span>
+        </div>
+
+        <!-- ★EXPプログレスバー -->
+        <div style="margin-top:4px;">
+          <div style="display:flex; justify-content:space-between; font-size:9px; color:#a0c4a4;">
+            <span>変態進行度 (EXP):</span>
+            <span id="txt-exp-val">0 / 10 EXP</span>
+          </div>
+          <div class="exp-container">
+            <div class="exp-fill" id="bar-exp"></div>
+          </div>
+        </div>
+
+        <div style="font-size:9px; margin-top:3px; color:#aaa; display:flex; justify-content:space-between;">
+          <span>残機: <span id="txt-eggs">🥚🥚</span></span>
+          <span>子孫(卵): <span id="txt-offspring">0</span>個</span>
+        </div>
+        <div class="status-grid">
+          <div class="bar-box">HP <strong id="val-hp" style="color:#ff6666;">100</strong></div>
+          <div class="bar-box">満腹 <strong id="val-food" style="color:#ffaa44;">100</strong></div>
+          <div class="bar-box">水分 <strong id="val-water" style="color:#55ccff;">100</strong></div>
+          <div class="bar-box">気力 <strong id="val-sta" style="color:#66ff66;">100</strong></div>
+        </div>
+      </div>
+
+      <!-- イベントカード -->
+      <div class="event-card" id="event-card-box">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong id="ev-title" style="color:var(--accent-gold);">【エリアイベント】</strong>
+          <span id="ev-partner-badge" style="display:none; background:#2f4a33; border:1px solid var(--accent); color:#fff; font-size:9px; padding:1px 5px; border-radius:3px; font-weight:bold;">
+            相手: ---
+          </span>
+        </div>
+        <div id="ev-desc" style="color:#ccc; margin-top:2px;">読み込み中...</div>
+        <select id="ev-choice-sel" style="margin-top:4px;"></select>
+      </div>
+
+      <!-- 行動入力パネル -->
+      <div class="panel">
+        <div style="display:flex; gap:6px;">
+          <div style="flex:1;">
+            <label style="font-size:10px;">移動エリア:</label>
+            <select id="move-sel" onchange="onMoveSelectChange()"></select>
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:10px;">行動:</label>
+            <select id="act-sel" onchange="onActionChange()">
+              <option value="feed" selected>捕食 (獲物を狙う)</option>
+              <option value="water">水を飲む (水分補給)</option>
+              <option value="rest">休む・隠れる (HP/気力)</option>
+              <option value="watch">見張り (警戒・護衛)</option>
+              <option value="huddle">カエル団子 (集団保湿)</option>
+              <option value="attack">攻撃する (小突く/排除)</option>
+              <option value="mate">求愛・繁殖 (成体のみ)</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="feed-target-box" style="margin-top:4px; background:#18261a; padding:5px; border-radius:4px; border:1px dashed var(--accent);">
+          <label style="font-size:10px; color:var(--accent); font-weight:bold;">🦗 獲物選択 (成功率):</label>
+          <select id="feed-target-sel"></select>
+        </div>
+
+        <div id="actor-target-box" style="display:none; margin-top:4px; background:#1c241d; padding:5px; border-radius:4px; border:1px dashed var(--accent-gold);">
+          <label style="font-size:10px; color:var(--accent-gold); font-weight:bold;" id="actor-target-label">🤝 相手を指名:</label>
+          <select id="actor-target-sel"></select>
+        </div>
+
+        <button class="primary" id="submit-btn" style="margin-top:6px;" onclick="sendAction()">この行動で確定する ✔</button>
+
+        <button class="secondary" style="margin-top:3px; padding:6px;" onclick="showStatusDetailModal()">
+          📊 自身の詳細ステータス・生体記録
         </button>
       </div>
-      <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:3px;">
-        <span id="txt-weather">☀️ 快晴</span>
-        <span id="txt-alive">生存: 25/25匹</span>
-      </div>
-      <div id="txt-alert" style="color:var(--danger); font-weight:bold; font-size:11px; margin-top:2px;">
-        気配: 周囲は静かだ……
-      </div>
-    </div>
 
-    <!-- 左：自分の画面 ＋ 右：全体図（タップで一覧表示！） -->
-    <div class="view-container">
-      <div class="screen-frame">
-        <canvas id="retroCanvas" width="130" height="150"></canvas>
+      <!-- プレイヤー進行状況 ＆ ログ -->
+      <div class="panel">
+        <div style="font-size:9px; color:#aaa;">参加PL状況 (タップで親密度確認):</div>
+        <div class="player-list" id="player-list"></div>
+        <div style="font-weight:bold; margin-top:4px; font-size:9px;">プレイヤー行動ログ:</div>
+        <div id="log-box"></div>
       </div>
-
-      <div class="minimap-panel" id="minimap-box">
-        <div class="minimap-zone" id="mm-z-4" onclick="openZoneActorsModal(4)">
-          <div class="minimap-zone-title"><span>⑤ 草むら</span><span class="minimap-actors-count" id="mm-cnt-4">0匹</span></div>
-          <div style="font-size:8px; color:#aaa;">タップで一覧</div>
-        </div>
-        <div class="minimap-zone" id="mm-z-3" onclick="openZoneActorsModal(3)">
-          <div class="minimap-zone-title"><span>④ 水際(倒木)</span><span class="minimap-actors-count" id="mm-cnt-3">0匹</span></div>
-          <div style="font-size:8px; color:#aaa;">タップで一覧</div>
-        </div>
-        <div class="minimap-zone" id="mm-z-2" onclick="openZoneActorsModal(2)">
-          <div class="minimap-zone-title"><span>③ 水面・浅瀬</span><span class="minimap-actors-count" id="mm-cnt-2">0匹</span></div>
-          <div style="font-size:8px; color:#aaa;">タップで一覧</div>
-        </div>
-        <div class="minimap-zone" id="mm-z-1" onclick="openZoneActorsModal(1)">
-          <div class="minimap-zone-title"><span>② 水中(水草)</span><span class="minimap-actors-count" id="mm-cnt-1">0匹</span></div>
-          <div style="font-size:8px; color:#aaa;">タップで一覧</div>
-        </div>
-        <div class="minimap-zone" id="mm-z-0" onclick="openZoneActorsModal(0)">
-          <div class="minimap-zone-title"><span>① 水底・泥地</span><span class="minimap-actors-count" id="mm-cnt-0">0匹</span></div>
-          <div style="font-size:8px; color:#aaa;">タップで一覧</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- プレイヤーステータス -->
-    <div class="panel">
-      <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
-        <div>
-          <strong id="txt-stage-name" style="color:var(--accent);">第1段階: オタマジャクシ</strong>
-          <span id="txt-gender-icon" style="font-weight:bold; margin-left:2px;">♂</span>
-        </div>
-        <span id="txt-trait-badge" onclick="showStatusDetailModal()" style="background:#233b28; border:1px solid var(--accent-gold); color:var(--accent-gold); padding:2px 6px; border-radius:3px; font-weight:bold; cursor:pointer;">
-          特徴: ---
-        </span>
-      </div>
-      <div style="font-size:10px; margin-top:2px; color:#aaa; display:flex; justify-content:space-between;">
-        <span>残機: <span id="txt-eggs">🥚🥚</span></span>
-        <span>子孫(卵): <span id="txt-offspring">0</span>個</span>
-      </div>
-      <div class="status-grid">
-        <div class="bar-box">HP <strong id="val-hp" style="color:#ff6666;">100</strong></div>
-        <div class="bar-box">満腹 <strong id="val-food" style="color:#ffaa44;">100</strong></div>
-        <div class="bar-box">水分 <strong id="val-water" style="color:#55ccff;">100</strong></div>
-        <div class="bar-box">気力 <strong id="val-sta" style="color:#66ff66;">100</strong></div>
-      </div>
-    </div>
-
-    <!-- エリア対応イベントカード -->
-    <div class="event-card" id="event-card-box">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <strong id="ev-title" style="color:var(--accent-gold);">【エリアイベント】</strong>
-        <span id="ev-partner-badge" style="display:none; background:#2f4a33; border:1px solid var(--accent); color:#fff; font-size:10px; padding:1px 6px; border-radius:3px; font-weight:bold;">
-          相手: ---
-        </span>
-      </div>
-      <div id="ev-desc" style="color:#ccc; margin-top:3px;">読み込み中...</div>
-      <select id="ev-choice-sel" style="margin-top:6px;"></select>
-    </div>
-
-    <!-- 行動入力パネル -->
-    <div class="panel">
-      <div style="display:flex; gap:6px;">
-        <div style="flex:1;">
-          <label style="font-size:10px;">移動エリア:</label>
-          <select id="move-sel" onchange="onMoveSelectChange()"></select>
-        </div>
-        <div style="flex:1;">
-          <label style="font-size:10px;">行動:</label>
-          <select id="act-sel" onchange="onActionChange()">
-            <option value="feed" selected>捕食 (獲物を狙う)</option>
-            <option value="water">水を飲む (水分補給)</option>
-            <option value="rest">休む・隠れる (HP/気力)</option>
-            <option value="watch">見張り (警戒・護衛)</option>
-            <option value="huddle">カエル団子 (集団保湿)</option>
-            <option value="attack">攻撃する (小突く/排除)</option>
-            <option value="mate">求愛・繁殖 (成体のみ)</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- ① 捕食選択時：リアルタイム捕食成功確率(%)付き餌リスト -->
-      <div id="feed-target-box" style="margin-top:6px; background:#18261a; padding:6px; border-radius:4px; border:1px dashed var(--accent);">
-        <label style="font-size:10px; color:var(--accent); font-weight:bold;">🦗 狙う獲物を選択 (捕食成功率):</label>
-        <select id="feed-target-sel"></select>
-      </div>
-
-      <!-- ② カエル団子／攻撃／求愛の相手指名リスト -->
-      <div id="actor-target-box" style="display:none; margin-top:6px; background:#1c241d; padding:6px; border-radius:4px; border:1px dashed var(--accent-gold);">
-        <label style="font-size:10px; color:var(--accent-gold); font-weight:bold;" id="actor-target-label">🤝 対象のカエルを指名:</label>
-        <select id="actor-target-sel"></select>
-      </div>
-
-      <button class="primary" id="submit-btn" style="margin-top:6px;" onclick="sendAction()">この行動で確定する ✔</button>
-
-      <button class="secondary" style="margin-top:4px;" onclick="showStatusDetailModal()">
-        📊 自身の詳細ステータス・生体記録
-      </button>
-    </div>
-
-    <!-- プレイヤー進行状況 ＆ ログ -->
-    <div class="panel">
-      <div style="font-size:10px; color:#aaa;">参加プレイヤー状況 (タップで親密度確認):</div>
-      <div class="player-list" id="player-list"></div>
-      <div style="font-weight:bold; margin-top:4px; font-size:10px;">プレイヤー行動ログ:</div>
-      <div id="log-box"></div>
     </div>
   </div>
 
@@ -464,7 +497,6 @@
 </div>
 
 <script>
-// 餌マスター
 const PREY_MASTER = {
   0: [
     { id: "algae", name: "アオミドロ(藻)", diff: 0, food: 18, exp: 6 },
@@ -523,22 +555,29 @@ const TRAITS_DATA = {
   }
 };
 
-// ルールブックの各タブテキスト
+const EXP_THRESHOLDS_CLIENT = [0, 10, 25, 45, 75, 115, 9999];
+
+// ★ルールブック（天候全5種対応）
 const RULE_TEXTS = {
   1: `<strong>【ゲームの目的と勝利条件】</strong><br>
 ・プレイヤーは1つの卵塊から生まれた兄弟の1匹となり、過酷な池で生き延びます。<br>
-・全35ターン（約15〜20分）で池が凍結（冬眠）するか、最後の1匹で終了。<br>
+・全35ターン（約15〜20分 / 1T: 120秒）で池が凍結（冬眠）するか、最後の1匹で終了。<br>
 ・<strong>最終スコア（適応度）</strong>：<br>
   (生存ターン × 100) ＋ (残した卵の数 × 50) ＋ 最終生存ボーナス(1500pt)<br>
 ※ただ隠れて延命するだけでなく、繁殖で子孫を残した個体が最高評価となります。`,
 
-  2: `<strong>【ゾーンの危険度と餌の経験値】</strong><br>
-・<strong>⑤ 草むら・陸地</strong>：コオロギ等（EXP特大）。ただし水分が急速に減り、ヘビに襲われる危険地帯。<br>
-・<strong>④ 水際・湿地</strong>：倒木シェルター（定員1匹）あり。水分消費小。<br>
-・<strong>③ 水面・浅瀬</strong>：アオサギの急襲デスゾーン。<br>
-・<strong>② 水中(水草)</strong>：オタマの主戦場。水分消費なし（全快）。<br>
-・<strong>① 水底・泥地</strong>：最も安全だがヤゴ潜伏。藻類（EXP極小）。<br>
-※上に行くほど危険ですが、餌の成長効率が4〜6倍跳ね上がります！`,
+  2: `<strong>【ゾーンの危険度と天候システム】</strong><br>
+<strong>【ゾーンのハイリスク・ハイリターン】</strong><br>
+・<strong>⑤ 草むら</strong>：コオロギ等（EXP特大）。ただし水分が激減しヘビ潜伏。<br>
+・<strong>④ 水際</strong>：倒木シェルター（定員1匹）あり。水分消費小。<br>
+・<strong>③ 水面</strong>：アオサギの急襲デスゾーン。<br>
+・<strong>② 水中 / ① 水底</strong>：水分消費なし。安全だが藻類（EXP極小）。<br><br>
+<strong>【天候の影響（全5種類）】</strong><br>
+・🌧️ <strong>雨</strong>：草むらでも水分消費ゼロ！安全に陸地を探索できるボーナスタイム。<br>
+・☀️ <strong>快晴</strong>：草むらの水分消費1.5倍。油断すると数ターンで干からび死！<br>
+・☁️ <strong>曇り</strong>：標準の天候。計画的な水分補給が必要。<br>
+・🔥 <strong>日照り・酷暑</strong>：草むらの乾燥2倍、水際も乾燥！満腹度減少も加速するデスゲーム。<br>
+・⛈️ <strong>豪雨・嵐</strong>：水分消費ゼロ。水流で気力消費が増えるが、<strong>天敵が隠れて襲来しない安全な嵐</strong>！`,
 
   3: `<strong>【心理戦・親密度・天敵】</strong><br>
 ・<strong>ペアイベント</strong>：同じエリアのカエルと発生。裏切れば自分だけ得をしますが、協力すればお互いの「親密度」がUP。<br>
@@ -548,7 +587,7 @@ const RULE_TEXTS = {
 
   4: `<strong>【成長段階と残機制】</strong><br>
 ・<strong>第1〜3段階 (オタマジャクシ期)</strong>：<br>
-  卵ストック（残機2機）あり。ヤゴに食われても水底から復活可能（ただし成長リセットで出遅れ）。<br>
+  卵ストック（残機2機）あり。ヤゴに食われても水底から復活可能（成長リセットによる出遅れペナルティ）。<br>
 ・<strong>第4段階 (尾の吸収・変態期)</strong>：<br>
   <strong>残機が消滅し、完全な「永久死亡」へ切り替わります！</strong><br>
 ・<strong>第6段階 (成体カエル)</strong>：<br>
@@ -582,7 +621,7 @@ let heronAttackY = -50;
 let yagoJawX = -20;
 const bubbles = [{ x: 20, y: 130, s: 1 }, { x: 50, y: 140, s: 0.8 }, { x: 90, y: 125, s: 1.2 }, { x: 115, y: 135, s: 0.7 }];
 const raindrops = [];
-for (let i = 0; i < 20; i++) raindrops.push({ x: Math.random() * 130, y: Math.random() * 150, v: 3 + Math.random() * 2 });
+for (let i = 0; i < 24; i++) raindrops.push({ x: Math.random() * 130, y: Math.random() * 150, v: 3 + Math.random() * 2 });
 
 window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
@@ -664,7 +703,6 @@ function handleStateUpdate(state) {
     hasShownTraitModal = true;
   }
 
-  // ★ターン解決サマリーダイアログの表示判定
   if (state.status === "playing" && state.turnSummaries && state.turnSummaries[myActorId]) {
     const sum = state.turnSummaries[myActorId];
     if (sum.turn > lastShownSummaryTurn && sum.turn > 1) {
@@ -726,10 +764,11 @@ function showTraitModal(state) {
 
 function closeTraitModal() {
   document.getElementById("trait-modal").style.display = "none";
-  document.getElementById("game-screen").style.display = "block";
+  // 横画面時はgrid、縦画面時はblock
+  const isLandscape = window.matchMedia("(orientation: landscape) and (max-height: 520px)").matches;
+  document.getElementById("game-screen").style.display = isLandscape ? "grid" : "block";
 }
 
-// ★ターンサマリーダイアログ表示
 function showTurnSummaryModal(sum) {
   document.getElementById("sum-turn-title").innerText = `【 TURN ${sum.turn - 1} 生存結果 】`;
   document.getElementById("sum-action-txt").innerText = sum.action || "行動なし";
@@ -759,7 +798,6 @@ function closeTurnSummaryModal() {
   document.getElementById("turn-summary-modal").style.display = "none";
 }
 
-// ★ルールブック表示
 function openRulebookModal() {
   switchRuleTab(1);
   document.getElementById("rulebook-modal").style.display = "flex";
@@ -776,7 +814,6 @@ function switchRuleTab(tabIdx) {
   document.getElementById("rule-content").innerHTML = RULE_TEXTS[tabIdx];
 }
 
-// ★エリア別カエル一覧表示モーダル
 function openZoneActorsModal(zoneId) {
   if (!lastState || !lastState.actors) return;
   document.getElementById("zam-zone-title").innerText = `${ZONE_NAMES[zoneId]} にいるカエル一覧`;
@@ -860,7 +897,10 @@ function renderGameUI(state) {
 
   document.getElementById("txt-turn").innerText = `TURN ${state.turn} (${tName} / ${dName}日目)`;
   document.getElementById("txt-timer").innerText = `${state.timeLeft}秒`;
-  document.getElementById("txt-weather").innerText = `${state.weather === "雨" ? "🌧️ 雨" : "☀️ 快晴"} (次T: ${state.forecast})`;
+
+  // 天候アイコンのマッピング
+  const wIcons = { "快晴": "☀️ 快晴", "曇り": "☁️ 曇り", "雨": "🌧️ 雨", "日照り": "🔥 日照り", "豪雨": "⛈️ 豪雨" };
+  document.getElementById("txt-weather").innerText = `${wIcons[state.weather] || state.weather} (次T: ${wIcons[state.forecast] || state.forecast})`;
 
   const aliveList = Object.values(state.actors).filter(a => a.alive);
   document.getElementById("txt-alive").innerText = `生存: ${aliveList.length}/25匹`;
@@ -878,6 +918,17 @@ function renderGameUI(state) {
     document.getElementById("txt-stage-name").innerText = `第${me.stage}段階: ${STAGE_NAMES[me.stage]}`;
     document.getElementById("txt-gender-icon").innerText = me.gender;
     document.getElementById("txt-gender-icon").style.color = me.gender === "♂" ? "#7ec5f5" : "#f57eb8";
+
+    // ★EXPプログレスバーの更新
+    const prevReq = EXP_THRESHOLDS_CLIENT[me.stage - 1] || 0;
+    const nextReq = EXP_THRESHOLDS_CLIENT[me.stage] || 9999;
+    const curExp = me.exp;
+    const needExp = nextReq - prevReq;
+    const progExp = Math.max(0, curExp - prevReq);
+    const expPct = me.stage >= 6 ? 100 : Math.min(100, Math.round((progExp / needExp) * 100));
+
+    document.getElementById("bar-exp").style.width = expPct + "%";
+    document.getElementById("txt-exp-val").innerText = me.stage >= 6 ? "最大成長 (完全成体)" : `${curExp} / ${nextReq} EXP (${expPct}%)`;
 
     document.getElementById("txt-eggs").innerText = me.stage < 4 ? "🥚".repeat(me.eggs) || "なし" : "なし (永久死亡)";
     document.getElementById("txt-offspring").innerText = me.offspringCount;
@@ -995,7 +1046,6 @@ function onActionChange() {
   }
 }
 
-// 捕食成功率付き獲物リスト
 function updatePreyOptions() {
   if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
   const me = lastState.actors[myActorId];
@@ -1140,9 +1190,11 @@ function updateAnim() {
     if (b.y < 20) { b.y = 140; b.x = 10 + Math.random() * 110; }
   });
 
-  if (lastState && lastState.weather === "雨") {
+  const isRain = lastState && (lastState.weather === "雨" || lastState.weather === "豪雨");
+  if (isRain) {
     raindrops.forEach(r => {
-      r.y += r.v; r.x -= 0.6;
+      r.y += r.v * (lastState.weather === "豪雨" ? 1.6 : 1);
+      r.x -= (lastState.weather === "豪雨" ? 1.2 : 0.6);
       if (r.y > 150) { r.y = 0; r.x = Math.random() * 150; }
     });
   }
@@ -1167,7 +1219,8 @@ function renderScene(ctx) {
   ctx.fillRect(0, 0, 130, 150);
 
   if (myZone === 4) {
-    ctx.fillStyle = "#1b2d18"; ctx.fillRect(0, 0, 130, 150);
+    ctx.fillStyle = (lastState && lastState.weather === "日照り") ? "#2a2814" : "#1b2d18";
+    ctx.fillRect(0, 0, 130, 150);
     ctx.fillStyle = "#274720";
     for (let x = 4; x < 130; x += 8) ctx.fillRect(x, 150 - (60 + (x % 4) * 15), 3, 100);
     ctx.fillStyle = "#3b6e32";
@@ -1213,9 +1266,10 @@ function renderScene(ctx) {
     ctx.fillRect(25, 120, 3, 3);
   }
 
-  if (lastState && lastState.weather === "雨") {
-    ctx.fillStyle = "rgba(180, 220, 255, 0.7)";
-    raindrops.forEach(r => ctx.fillRect(Math.floor(r.x), Math.floor(r.y), 1, 4));
+  const isRain = lastState && (lastState.weather === "雨" || lastState.weather === "豪雨");
+  if (isRain) {
+    ctx.fillStyle = lastState.weather === "豪雨" ? "rgba(160, 210, 255, 0.9)" : "rgba(180, 220, 255, 0.7)";
+    raindrops.forEach(r => ctx.fillRect(Math.floor(r.x), Math.floor(r.y), 1, lastState.weather === "豪雨" ? 6 : 4));
   }
 }
 
