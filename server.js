@@ -652,7 +652,9 @@ function resolveActions(room, logs) {
 
       const p1Power = (a.length * 5) + (a.weight * 3) + (a.stamina * 0.25);
       const p2Power = (partner.length * 5) + (partner.weight * 3) + (partner.stamina * 0.25);
-      let chance = Math.max(30, Math.min(95, Math.round(60 + ((p1Power + p2Power) - prey.diff) * 2)));
+      let coopChance = 60 + ((p1Power + p2Power) - prey.diff) * 2;
+      if (a.gender === partner.gender) coopChance += 10;
+      let chance = Math.max(30, Math.min(95, Math.round(coopChance)));
 
       if (Math.random() * 100 < chance) {
         const halfFood = Math.round(prey.food * 0.55);
@@ -729,7 +731,7 @@ function resolveActions(room, logs) {
     // ⑦ 攻撃
     else if (act === "attack") {
       const target = room.actors[actData.targetId];
-      if (target && target.alive && target.zone === a.zone) {
+      if (target && target.alive && target.zone === a.zone && !(room.huddleProtected && room.huddleProtected.has(target.id))) {
         target.hp -= 20;
         addAffinity(a, target, -30);
         room.turnSummaries[a.id].action = `【攻撃】${target.name} に体当たりしてダメージを与えた！（親密度-30）`;
@@ -1030,6 +1032,105 @@ function broadcastState(room) {
 }
 
 // サーバー起動
+// FROG LIFE rule extensions.
+const springWaterEvent = EVENTS_MASTER.solo.find(ev => ev.id === "solo_spring_water");
+if (springWaterEvent) {
+  springWaterEvent.choices.push({ id: "save", text: "湧き水を後回しにして休む（気力+10）" });
+  springWaterEvent.resolve = (actor, choice) => {
+    if (choice === "save") {
+      actor.stamina = Math.min(100, actor.stamina + 10);
+      return "湧き水を後回しにして休んだ。（気力+10）";
+    }
+    actor.water = 100;
+    actor.hp = Math.min(100, actor.hp + 10);
+    return "冷たい湧き水を飲み、水分が全快した。（HP+10）";
+  };
+}
+const leechEvent = EVENTS_MASTER.solo.find(ev => ev.id === "solo_leech");
+if (leechEvent) {
+  leechEvent.choices.push({ id: "endure", text: "動かず耐える（HP-10、気力-20）" });
+  const originalLeechResolve = leechEvent.resolve;
+  leechEvent.resolve = (actor, choice) => {
+    if (choice === "endure") {
+      actor.hp = Math.max(1, actor.hp - 10);
+      actor.stamina = Math.max(0, actor.stamina - 20);
+      return "動かず耐えたが、HP-10、気力-20。";
+    }
+    return originalLeechResolve(actor, choice);
+  };
+}
+
+const originalSetupTurnEvents = setupTurnEvents;
+setupTurnEvents = function(room) {
+  originalSetupTurnEvents(room);
+  Object.entries(room.eventsByZone).forEach(([zone, ev]) => {
+    ev.type = Object.values(room.actors).filter(a => a.alive && String(a.zone) === zone).some(a => room.pairTargets[a.id]) ? "pair" : "solo";
+  });
+};
+
+const originalResolveEvents = resolveEvents;
+resolveEvents = function(room, logs) {
+  const savedChoices = { ...room.eventChoices };
+  for (const [actorId, partnerId] of Object.entries(room.pairTargets || {})) {
+    const actor = room.actors[actorId];
+    const partner = room.actors[partnerId];
+    if (!actor || !partner || actorId > partnerId) continue;
+    const ev = room.eventsByZone[actor.zone];
+    if (!ev || ev.type !== "pair" || !ev.choices || ev.choices.length < 2) continue;
+    for (const [who, other] of [[actor, partner], [partner, actor]]) {
+      if (room.eventChoices[who.id] !== ev.choices[ev.choices.length - 1].id) continue;
+      let betrayalChance = 35;
+      if (who.personality === PERSONALITIES[0]) betrayalChance -= 10;
+      if (who.personality === PERSONALITIES[1]) betrayalChance += 20;
+      const affinity = (who.affinity && who.affinity[other.id]) || 0;
+      betrayalChance -= affinity * 0.3;
+      if (who.gender === other.gender) betrayalChance -= 10;
+      betrayalChance = Math.max(5, Math.min(80, betrayalChance));
+      if (Math.random() * 100 >= betrayalChance) room.eventChoices[who.id] = ev.choices[0].id;
+    }
+  }
+  originalResolveEvents(room, logs);
+  room.eventChoices = savedChoices;
+};
+
+const originalResolveActions = resolveActions;
+resolveActions = function(room, logs) {
+  room.huddleProtected = new Set();
+  Object.values(room.actors).forEach(actor => {
+    const action = room.actions[actor.id];
+    const partner = action && room.actors[action.targetId];
+    if (actor.alive && action && action.act === "huddle" && partner && partner.alive && partner.zone === actor.zone) {
+      room.huddleProtected.add(actor.id);
+      room.huddleProtected.add(partner.id);
+    }
+  });
+  originalResolveActions(room, logs);
+  Object.values(room.actors).forEach(actor => {
+    const action = room.actions[actor.id];
+    const partner = action && room.actors[action.targetId];
+    if (actor.alive && action && action.act === "huddle" && partner && partner.alive && partner.zone === actor.zone) {
+      for (const protectedActor of [actor, partner]) {
+        const summary = room.turnSummaries[protectedActor.id];
+        if (summary && !summary.action.includes("保護効果")) summary.action += "（保護効果：このターンは天敵とカエルの攻撃を防ぐ）";
+      }
+    }
+    if (!actor.alive || !action || action.act !== "call" || !partner || !partner.alive || actor.zone !== partner.zone) return;
+    addAffinity(actor, partner, 3);
+    room.turnSummaries[actor.id].action = `【鳴く】${partner.name} に協力を呼びかけた。（親密度+3）`;
+  });
+};
+
+const originalResolvePredators = resolvePredators;
+resolvePredators = function(room, logs) {
+  const protectedActors = [];
+  (room.huddleProtected || new Set()).forEach(id => {
+    const actor = room.actors[id];
+    if (actor && actor.alive) { actor.alive = false; protectedActors.push(actor); }
+  });
+  originalResolvePredators(room, logs);
+  protectedActors.forEach(actor => { actor.alive = true; });
+};
+
 server.listen(PORT, () => {
   console.log(`FROG LIFE Server running on port ${PORT}`);
 });

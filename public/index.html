@@ -1109,6 +1109,11 @@ function onMoveSelectChange() {
   updateActorTargetOptions();
 }
 
+const callActionOption = document.createElement("option");
+callActionOption.value = "call";
+callActionOption.textContent = "鳴く（協力を求める・親密度+3）";
+document.getElementById("act-sel").appendChild(callActionOption);
+
 function onActionChange() {
   const act = document.getElementById("act-sel").value;
   const feedBox = document.getElementById("feed-target-box");
@@ -1117,7 +1122,8 @@ function onActionChange() {
 
   feedBox.style.display = (act === "feed") ? "block" : "none";
 
-  if (act === "huddle" || act === "attack" || act === "mate") {
+  if (act === "huddle" || act === "call" || act === "attack" || act === "mate") {
+    if (act === "call") actorLabel.innerText = "鳴いて協力を求める相手:";
     actorBox.style.display = "block";
     if (act === "huddle") actorLabel.innerText = "🤝 カエル団子を申請する相手:";
     if (act === "attack") actorLabel.innerText = "⚔️ 攻撃・排除する相手を指名:";
