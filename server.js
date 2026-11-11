@@ -55,27 +55,37 @@ const STAGE_NAMES = ["", "オタマジャクシ", "後足が生えた", "前足�
 const NPC_PERSONALITIES = ["温厚", "臆病", "利己", "獰猛", "気まぐれ"];
 const TRAITS = ["頑強", "大食漢", "身軽", "高代謝", "慎重"];
 
+// ★大幅拡充されたイベントマスター（全20種類以上）
 const AREA_EVENTS = {
   global: [
-    { id: "g_rain", title: "【全体】恵みのゲリラ豪雨", desc: "池全体に激しいスコール！陸地が潤い、虫たちが地面に落ちてきた！", choices: [{ id: "rush", text: "🦗 陸へ駆け上がって乱獲" }, { id: "stay", text: "💧 水中で安全に雨宿り" }] },
-    { id: "g_heron", title: "【全体】上空にサギの旋回！", desc: "巨大なアオサギが池を見下ろしている。どう生き延びる？", choices: [{ id: "threat", text: "👥 みんなで膨らんで威嚇" }, { id: "hide", text: "🙈 泥の底へ潜って隠れる" }] }
+    { id: "g_rain", title: "【全体】恵みのゲリラ豪雨", desc: "激しいスコール！陸地が潤い、虫たちが地面に落ちてきた！", choices: [{ id: "rush", text: "🦗 陸へ駆け上がって乱獲 (EXP期待)" }, { id: "stay", text: "💧 水中で安全に雨宿り (安全第一)" }] },
+    { id: "g_heron", title: "【全体】上空にサギの旋回！", desc: "巨大なアオサギが池を見下ろしている。どう切り抜ける？", choices: [{ id: "threat", text: "👥 みんなで膨らんで威嚇" }, { id: "hide", text: "🙈 泥の底へ潜って隠れる" }] },
+    { id: "g_bloom", title: "【全体】水面のアオコ大発生", desc: "水面の酸素が薄くなってきた。息継ぎが困難に！", choices: [{ id: "surface", text: "🫧 水面で必死に呼吸 (気力回復)" }, { id: "endure", text: "🧘 水底でジッと耐える (消耗回避)" }] }
   ],
   4: [
-    { id: "p_snake_nest", type: "pair", title: "【草むら】ヘビの寝床の獲物", desc: "眠る大蛇のすぐ脇にバッタの卵塊を発見！音を立てればヘビが目覚める！", choices: [{ id: "creep", text: "🤫 忍び足で分け合う (協調)" }, { id: "push", text: "⚡ 相手を突き飛ばして逃走 (非情)" }] },
-    { id: "p_dew", type: "pair", title: "【草むら】朝露の分け合い", desc: "快晴の暑さ。草の先端に大粒の朝露が1滴だけ残っている……", choices: [{ id: "share", text: "💧 半分ずつ吸い合う (協調)" }, { id: "drink_all", text: "⚡ 突き飛ばして一気飲み (独占)" }] }
+    { id: "p_snake_nest", type: "pair", title: "【草むら】ヘビの寝床の獲物", desc: "眠る大蛇のすぐ脇にバッタの卵塊を発見！音を立てればヘビが目覚める！", choices: [{ id: "creep", text: "🤫 忍び足で分け合う (協調)" }, { id: "push", text: "⚡ 相手を突き飛ばして独占 (非情)" }] },
+    { id: "p_dew", type: "pair", title: "【草むら】朝露の分け合い", desc: "照りつける太陽。草の先端に大粒の朝露が1滴だけ残っている……", choices: [{ id: "share", text: "💧 半分ずつ吸い合う (協調)" }, { id: "drink_all", text: "⚡ 突き飛ばして一気飲み (独占)" }] },
+    { id: "p_grasshopper_hunt", type: "pair", title: "【草むら】大型バッタの挟み撃ち", desc: "凶暴なトノサマバッタを発見！2匹で挟み撃ちにすれば狩れそうだ！", choices: [{ id: "pincer", text: "🤝 合図に合わせて挟み撃ち" }, { id: "bait", text: "😈 相手を突っ込ませて漁夫の利" }] },
+    { id: "s_scorching_sun", type: "personal", title: "【草むら】直射日光の猛威", desc: "日差しが強烈で皮膚がパリパリに乾いていく……！", choices: [{ id: "shade", text: "🌿 葉陰を探して休む (水分保護)" }, { id: "hunt_on", text: "🦗 我慢して虫を探し回る (捕食優先)" }] }
   ],
   3: [
-    { id: "p_log_entry", type: "pair", title: "【水際】倒木シェルターの定員", desc: "サギ接近！倒木の狭い空洞は1匹分しかない！押し合うか、譲るか？", choices: [{ id: "squeeze", text: "🤝 半分ずつ押し込み合う" }, { id: "kick_out", text: "🦶 相手を外へ蹴り出す" }] },
-    { id: "g_worm", type: "global_area", title: "【水際】流れてきた大ミミズ", desc: "岸辺の泥に巨大な獲物が漂着！山分けするか、独り占めを狙うか？", choices: [{ id: "coop", text: "🤝 山分けを提案" }, { id: "betray", text: "⚔️ 独り占めを狙う" }] }
+    { id: "p_log_entry", type: "pair", title: "【水際】倒木シェルターの定員", desc: "外敵の気配！狭い倒木の空洞は1匹分しかない！押し合うか、譲るか？", choices: [{ id: "squeeze", text: "🤝 半分ずつ押し込み合う (協調)" }, { id: "kick_out", text: "🦶 相手を外へ蹴り出す (非情)" }] },
+    { id: "p_mud_bath", type: "pair", title: "【水際】泥パックの塗り合い", desc: "湿った泥を皮膚に塗ると乾燥を防げる。背中に泥を塗り合うか？", choices: [{ id: "help", text: "🤝 お互いに泥を塗り合う" }, { id: "take", text: "⚡ 泥を奪って自分だけに塗る" }] },
+    { id: "g_worm", type: "personal", title: "【水際】流れてきた大ミミズ", desc: "岸辺の泥に高栄養なミミズが漂着した！", choices: [{ id: "share_w", text: "🤝 周囲の仲間と分け合う" }, { id: "solo_w", text: "😋 独り占めして丸呑み" }] }
   ],
   2: [
-    { id: "p_leaf", type: "pair", title: "【水面】浮き草の定員", desc: "サギ接近中！1匹しか乗れない浮き葉の上で鉢合わせた。重みで沈む前にどうする？", choices: [{ id: "coop", text: "🤝 譲り合って片足で耐える" }, { id: "kick", text: "🦶 相手を水中に蹴り落とす" }] }
+    { id: "p_leaf", type: "pair", title: "【水面】浮き草の定員", desc: "サギ警戒中！1匹しか乗れない浮き葉の上で鉢合わせた。沈む前にどうする？", choices: [{ id: "coop", text: "🤝 譲り合って片足で耐える (協調)" }, { id: "kick", text: "🦶 相手を水中に蹴り落とす (非情)" }] },
+    { id: "p_strider_chase", type: "pair", title: "【水面】素早いアメンボ", desc: "水面を滑るアメンボ！素早くて1匹では捕まえにくい！", choices: [{ id: "coop_hunt", text: "🤝 追い込んで挟み撃ち" }, { id: "steal", text: "⚡ 相手が追ったところを横取り" }] },
+    { id: "s_floating_flower", type: "personal", title: "【水面】水面に浮かぶ花びら", desc: "綺麗なスイレンの花びらが流れてきた。乗って休めそうだ。", choices: [{ id: "ride", text: "🌸 花びらに乗って休む (気力回復)" }, { id: "under", text: "👀 花の影に潜んで虫を待つ (捕食)" }] }
   ],
   1: [
-    { id: "p_weed_trap", type: "pair", title: "【水中】水草に絡まった仲間", desc: "相手が水草に尾びれを絡め取られて動けない！助けるか、襲うか？", choices: [{ id: "rescue", text: "✂️ 水草を噛みちぎって助ける" }, { id: "cannibal", text: "😈 動けない相手の尾をかじる" }] }
+    { id: "p_weed_trap", type: "pair", title: "【水中】水草に絡まった仲間", desc: "相手が水草に尾びれを絡め取られて動けない！助けるか、襲うか？", choices: [{ id: "rescue", text: "✂️ 水草を噛みちぎって助ける (協調)" }, { id: "cannibal", text: "😈 動けない相手の尾をかじる (非情)" }] },
+    { id: "p_bubble_share", type: "pair", title: "【水中】水草の光合成気泡", desc: "水草から新鮮な空気の泡が出ている！息継ぎに行かずに酸素を得られる！", choices: [{ id: "share_b", text: "🫧 半分ずつ吸い合う" }, { id: "gulp_b", text: "⚡ 一気に全部吸い込む" }] },
+    { id: "p_beetle_danger", type: "pair", title: "【水中】凶暴なゲンゴロウ急襲", desc: "鋭いアゴを持つ大型ゲンゴロウが泳ぎ寄ってきた！", choices: [{ id: "coop_flee", text: "🤝 目配せして同時に左右へ逃げる" }, { id: "push_bait", text: "⚡ 相手を前へ突き飛ばして逃げる" }] }
   ],
   0: [
-    { id: "p_yago_ambush", type: "pair", title: "【水底】ヤゴの巣穴の発見", desc: "泥の底にヤゴが潜んでいるのを2匹が同時に気づいた！", choices: [{ id: "back_off", text: "🤫 目配せして静かに後退" }, { id: "push_bait", text: "⚡ 相手をヤゴの前へ突き飛ばす" }] },
+    { id: "p_yago_ambush", type: "pair", title: "【水底】ヤゴの巣穴の発見", desc: "泥の底にヤゴが潜んでいるのを2匹が同時に気づいた！", choices: [{ id: "back_off", text: "🤫 目配せして静かに後退 (協調)" }, { id: "push_yago", text: "⚡ 相手をヤゴの前へ突き飛ばす (非情)" }] },
+    { id: "p_mud_burrow", type: "pair", title: "【水底】安全な泥の寝床", desc: "冷たくて天敵から見つかりにくい極上の泥のくぼみを発見！", choices: [{ id: "cuddle", text: "🤝 2匹で身を寄せて埋まる" }, { id: "monopolize", text: "🦶 相手を押し出して独占する" }] },
     { id: "s_moss", type: "personal", title: "【水底】青白く光る苔", desc: "暗い泥底に怪しく光る苔が生い茂っている。極上の栄養か、毒か？", choices: [{ id: "eat", text: "😋 思い切って食べる" }, { id: "ignore", text: "🙅 怪しいので無視する" }] }
   ]
 };
@@ -192,7 +202,7 @@ function pickAreaEvents(room) {
   }
 }
 
-// ターン解決処理
+// ターン解決処理（★重要：実行順序を正常化）
 function resolveTurn(room) {
   if (room.isFinished) return;
 
@@ -214,10 +224,13 @@ function resolveTurn(room) {
     };
   });
 
-  // 1. NPC思考
+  // 1. NPCの行動・イベント選択を決定（現在地ベース）
   alive.filter(a => !a.isPlayer).forEach(npc => decideNpcTurn(npc, room));
 
-  // 2. 移動の実行（安全チェック）
+  // 2. ★エリア連動イベント解決を「移動前（現在地）」で確実に実行！
+  resolveAreaEvents(room, logs);
+
+  // 3. 移動の実行
   alive.forEach(a => {
     if (a.action && a.action.moveZone !== undefined) {
       const tz = parseInt(a.action.moveZone, 10);
@@ -227,9 +240,6 @@ function resolveTurn(room) {
     }
   });
 
-  // 3. エリア連動イベント解決
-  resolveAreaEvents(room, logs);
-
   // 4. 天敵襲来（豪雨時は安全）
   if (room.nextPredator && room.weather !== "豪雨") {
     room.activePredatorAnimation = room.nextPredator;
@@ -238,7 +248,7 @@ function resolveTurn(room) {
     logs.push("⛈️ 激しい豪雨のため、天敵たちは身を潜めている。");
   }
 
-  // 5. アクション解決
+  // 5. アクション解決（移動先での捕食・交配・団子など）
   resolveActions(room, logs);
 
   // 6. 代謝・成長・死亡
@@ -269,6 +279,7 @@ function resolveTurn(room) {
     room.nextPredator = null;
   }
 
+  // 新しい現在地に合わせて次ターンのイベントを抽選
   pickAreaEvents(room);
 
   room.coopRequests = {};
@@ -282,15 +293,18 @@ function resolveTurn(room) {
   broadcastState(room, logs);
 }
 
+// NPCの思考ロジック
 function decideNpcTurn(npc, room) {
-  let tz = parseInt(npc.zone, 10) || 1;
+  const currentZone = parseInt(npc.zone, 10) || 1;
+  let tz = currentZone;
+
   if (npc.stage >= 5 && Math.random() < 0.4) {
     tz = (room.weather === "雨" || room.weather === "豪雨") ? 4 : 3;
   } else if (npc.stage < 4) {
     tz = Math.random() < 0.6 ? 1 : 0;
   }
   tz = Math.max(0, Math.min(4, tz));
-  if (tz > npc.stage) tz = parseInt(npc.zone, 10) || 1;
+  if (tz > npc.stage) tz = currentZone;
 
   let act = "feed";
   let targetId = null;
@@ -317,18 +331,22 @@ function decideNpcTurn(npc, room) {
 
   npc.action = { moveZone: tz, act, targetId, targetPreyId };
 
-  const ev = room.eventsByZone[tz];
-  if (ev && ev.choices) {
-    if (npc.personality === "利己" || npc.personality === "獰猛") {
-      npc.eventChoice = ev.choices[1].id;
-    } else if (npc.personality === "温厚") {
+  // ★現在地のイベントに対する選択肢を性格から決定
+  const ev = room.eventsByZone[currentZone];
+  if (ev && ev.choices && ev.choices.length > 0) {
+    if (npc.personality === "温厚") {
+      npc.eventChoice = ev.choices[0].id; // 協調
+    } else if (npc.personality === "利己" || npc.personality === "獰猛") {
+      npc.eventChoice = ev.choices.length > 1 ? ev.choices[1].id : ev.choices[0].id; // 独占・攻撃
+    } else if (npc.personality === "臆病") {
       npc.eventChoice = ev.choices[0].id;
     } else {
-      npc.eventChoice = Math.random() < 0.5 ? ev.choices[0].id : ev.choices[1].id;
+      npc.eventChoice = ev.choices[Math.floor(Math.random() * ev.choices.length)].id;
     }
   }
 }
 
+// ★エリアイベントの完全解決（親密度・パラメータ増減の確実な反映）
 function resolveAreaEvents(room, logs) {
   const alive = Object.values(room.actors).filter(a => a.alive);
 
@@ -347,102 +365,347 @@ function resolveAreaEvents(room, logs) {
         if (!p2 || !p2.alive) return;
 
         const involvesPlayer = p1.isPlayer || p2.isPlayer;
+        const c1 = p1.eventChoice;
+        const c2 = p2.eventChoice;
 
-        if (ev.id === "p_leaf") {
-          if (p1.eventChoice === "coop" && p2.eventChoice === "coop") {
-            addAffinity(p1, p2, 6);
-            setEventSummary(room, p1, `浮葉を譲り合い耐えた (${p2.name}親密度+6)`);
-            setEventSummary(room, p2, `浮葉を譲り合い耐えた (${p1.name}親密度+6)`);
-            if (involvesPlayer) logs.push(`ペア結末[葉]: ${p1.name} と ${p2.name} は譲り合い耐えきった`);
-          } else if (p1.eventChoice === "kick" && p2.eventChoice === "coop") {
-            p2.hp -= 30; addAffinity(p2, p1, -12);
-            setEventSummary(room, p1, `${p2.name} を葉から水中に蹴り落とした！ (${p2.name}親密度-12)`);
-            setEventSummary(room, p2, `${p1.name} に葉から蹴り落とされた！ (HP-30, 親密度-12)`);
-            p1.history.push(`TURN ${room.turn}: ${p2.name} を葉から蹴り落とす`);
-            if (involvesPlayer) logs.push(`ペア結末[葉]: ${p1.name} が ${p2.name} を水中に蹴り落とした！`);
-          } else if (p1.eventChoice === "coop" && p2.eventChoice === "kick") {
-            p1.hp -= 30; addAffinity(p1, p2, -12);
-            setEventSummary(room, p2, `${p1.name} を葉から水中に蹴り落とした！ (${p1.name}親密度-12)`);
-            setEventSummary(room, p1, `${p2.name} に葉から蹴り落とされた！ (HP-30, 親密度-12)`);
-            p2.history.push(`TURN ${room.turn}: ${p1.name} を葉から蹴り落とす`);
-            if (involvesPlayer) logs.push(`ペア結末[葉]: ${p2.name} が ${p1.name} を水中に蹴り落とした！`);
-          } else {
-            p1.hp -= 20; p2.hp -= 20; addAffinity(p1, p2, -8);
-            setEventSummary(room, p1, `もつれ合い共倒れで葉から転落 (HP-20, 親密度-8)`);
-            setEventSummary(room, p2, `もつれ合い共倒れで葉から転落 (HP-20, 親密度-8)`);
-            if (involvesPlayer) logs.push(`ペア結末[葉]: 2匹はもつれ合い共倒れ（HP-20）`);
-          }
-        } else if (ev.id === "p_dew") {
-          if (p1.eventChoice === "share" && p2.eventChoice === "share") {
-            p1.water = Math.min(100, p1.water + 35); p2.water = Math.min(100, p2.water + 35);
-            addAffinity(p1, p2, 6);
-            setEventSummary(room, p1, `${p2.name} と朝露を半分ずつ分け合った (水分+35, 親密度+6)`);
-            setEventSummary(room, p2, `${p1.name} と朝露を半分ずつ分け合った (水分+35, 親密度+6)`);
-            if (involvesPlayer) logs.push(`ペア結末[露]: ${p1.name} と ${p2.name} は朝露を分け合った`);
-          } else if (p1.eventChoice === "drink_all" && p2.eventChoice === "share") {
-            p1.water = Math.min(100, p1.water + 75); addAffinity(p2, p1, -12);
-            setEventSummary(room, p1, `朝露を独り占めして飲み干した！ (水分+75)`);
-            setEventSummary(room, p2, `${p1.name} に朝露を独り占めされた！ (水分0, 親密度-12)`);
-            if (involvesPlayer) logs.push(`ペア結末[露]: ${p1.name} が朝露を独り占めして飲み干した！`);
-          } else if (p1.eventChoice === "share" && p2.eventChoice === "drink_all") {
-            p2.water = Math.min(100, p2.water + 75); addAffinity(p1, p2, -12);
-            setEventSummary(room, p2, `朝露を独り占めして飲み干した！ (水分+75)`);
-            setEventSummary(room, p1, `${p2.name} に朝露を独り占めされた！ (水分0, 親密度-12)`);
-            if (involvesPlayer) logs.push(`ペア結末[露]: ${p2.name} が朝露を独り占めして飲み干した！`);
-          } else {
-            setEventSummary(room, p1, `朝露を奪い合い泥に消えた (水分0)`);
-            setEventSummary(room, p2, `朝露を奪い合い泥に消えた (水分0)`);
-            if (involvesPlayer) logs.push(`ペア結末[露]: 朝露を奪い合い、露は泥に消えた……`);
-          }
-        } else if (ev.id === "p_snake_nest") {
-          if (p1.eventChoice === "creep" && p2.eventChoice === "creep") {
+        // --- ゾーン4: 草むら ---
+        if (ev.id === "p_snake_nest") {
+          if (c1 === "creep" && c2 === "creep") {
             p1.exp += 25; p1.food = Math.min(100, p1.food + 30);
             p2.exp += 25; p2.food = Math.min(100, p2.food + 30);
             addAffinity(p1, p2, 8);
-            setEventSummary(room, p1, `ヘビを起こさず獲物を分け合った (満腹+30, EXP+25, 親密度+8)`);
-            setEventSummary(room, p2, `ヘビを起こさず獲物を分け合った (満腹+30, EXP+25, 親密度+8)`);
-            if (involvesPlayer) logs.push(`ペア結末[ヘビ]: 2匹は静かに獲物を分け合った`);
-          } else if (p1.eventChoice === "push" && p2.eventChoice === "creep") {
+            setEventSummary(room, p1, `ヘビを起こさず獲物を分け合った (満腹+30, EXP+25, ${p2.name}親密度+8)`);
+            setEventSummary(room, p2, `ヘビを起こさず獲物を分け合った (満腹+30, EXP+25, ${p1.name}親密度+8)`);
+            if (involvesPlayer) logs.push(`ペア結末[ヘビ]: ${p1.name} と ${p2.name} は静かに獲物を分け合った (親密度+8)`);
+          } else if (c1 === "push" && c2 === "creep") {
             p1.exp += 45; p1.food = Math.min(100, p1.food + 60);
-            p2.hp -= 40; addAffinity(p2, p1, -15);
+            p2.hp -= 35; addAffinity(p2, p1, -15);
             setEventSummary(room, p1, `${p2.name} を突き飛ばし獲物を独占！ (満腹+60, EXP+45)`);
-            setEventSummary(room, p2, `${p1.name} に突き飛ばされヘビに噛まれた！ (HP-40, 親密度-15)`);
+            setEventSummary(room, p2, `${p1.name} に突き飛ばされヘビに噛まれた！ (HP-35, 親密度-15)`);
             if (involvesPlayer) logs.push(`ペア結末[ヘビ]: ${p1.name} が ${p2.name} を生贄にして獲物を独占！`);
-          } else if (p1.eventChoice === "creep" && p2.eventChoice === "push") {
+          } else if (c1 === "creep" && c2 === "push") {
             p2.exp += 45; p2.food = Math.min(100, p2.food + 60);
-            p1.hp -= 40; addAffinity(p1, p2, -15);
+            p1.hp -= 35; addAffinity(p1, p2, -15);
             setEventSummary(room, p2, `${p1.name} を突き飛ばし獲物を独占！ (満腹+60, EXP+45)`);
-            setEventSummary(room, p1, `${p2.name} に突き飛ばされヘビに噛まれた！ (HP-40, 親密度-15)`);
+            setEventSummary(room, p1, `${p2.name} に突き飛ばされヘビに噛まれた！ (HP-35, 親密度-15)`);
             if (involvesPlayer) logs.push(`ペア結末[ヘビ]: ${p2.name} が ${p1.name} を生贄にして獲物を独占！`);
           } else {
-            p1.hp -= 35; p2.hp -= 35;
-            setEventSummary(room, p1, `2匹が暴れて目覚めたヘビに共倒れで噛まれた！ (HP-35)`);
-            setEventSummary(room, p2, `2匹が暴れて目覚めたヘビに共倒れで噛まれた！ (HP-35)`);
-            if (involvesPlayer) logs.push(`ペア結末[ヘビ]: 2匹が暴れ、激怒したヘビに共倒れで噛まれた！`);
+            p1.hp -= 30; p2.hp -= 30; addAffinity(p1, p2, -8);
+            setEventSummary(room, p1, `暴れて目覚めたヘビに共倒れで噛まれた！ (HP-30, 親密度-8)`);
+            setEventSummary(room, p2, `暴れて目覚めたヘビに共倒れで噛まれた！ (HP-30, 親密度-8)`);
+            if (involvesPlayer) logs.push(`ペア結末[ヘビ]: 2匹が暴れ、ヘビに共倒れで噛まれた！`);
+          }
+        } else if (ev.id === "p_dew") {
+          if (c1 === "share" && c2 === "share") {
+            p1.water = Math.min(100, p1.water + 35); p2.water = Math.min(100, p2.water + 35);
+            addAffinity(p1, p2, 8);
+            setEventSummary(room, p1, `${p2.name} と朝露を半分ずつ分け合った (水分+35, 親密度+8)`);
+            setEventSummary(room, p2, `${p1.name} と朝露を半分ずつ分け合った (水分+35, 親密度+8)`);
+            if (involvesPlayer) logs.push(`ペア結末[朝露]: ${p1.name} と ${p2.name} は朝露を分け合った (親密度+8)`);
+          } else if (c1 === "drink_all" && c2 === "share") {
+            p1.water = Math.min(100, p1.water + 70); addAffinity(p2, p1, -12);
+            setEventSummary(room, p1, `朝露を独り占めして飲み干した！ (水分+70)`);
+            setEventSummary(room, p2, `${p1.name} に朝露を独り占めされた！ (水分0, 親密度-12)`);
+            if (involvesPlayer) logs.push(`ペア結末[朝露]: ${p1.name} が朝露を独り占めした！`);
+          } else if (c1 === "share" && c2 === "drink_all") {
+            p2.water = Math.min(100, p2.water + 70); addAffinity(p1, p2, -12);
+            setEventSummary(room, p2, `朝露を独り占めして飲み干した！ (水分+70)`);
+            setEventSummary(room, p1, `${p2.name} に朝露を独り占めされた！ (水分0, 親密度-12)`);
+            if (involvesPlayer) logs.push(`ペア結末[朝露]: ${p2.name} が朝露を独り占めした！`);
+          } else {
+            addAffinity(p1, p2, -6);
+            setEventSummary(room, p1, `朝露を奪い合って地面にこぼした (水分0, 親密度-6)`);
+            setEventSummary(room, p2, `朝露を奪い合って地面にこぼした (水分0, 親密度-6)`);
+            if (involvesPlayer) logs.push(`ペア結末[朝露]: 奪い合いにより朝露は泥に消えた……`);
+          }
+        } else if (ev.id === "p_grasshopper_hunt") {
+          if (c1 === "pincer" && c2 === "pincer") {
+            p1.food = Math.min(100, p1.food + 35); p1.exp += 25;
+            p2.food = Math.min(100, p2.food + 35); p2.exp += 25;
+            addAffinity(p1, p2, 10);
+            setEventSummary(room, p1, `${p2.name} と挟み撃ち成功！ (満腹+35, EXP+25, 親密度+10)`);
+            setEventSummary(room, p2, `${p1.name} と挟み撃ち成功！ (満腹+35, EXP+25, 親密度+10)`);
+            if (involvesPlayer) logs.push(`ペア結末[狩り]: ${p1.name} と ${p2.name} がバッタを挟み撃ち捕獲！(親密度+10)`);
+          } else if (c1 === "bait" && c2 === "pincer") {
+            p1.food = Math.min(100, p1.food + 60); p1.exp += 40;
+            p2.hp -= 20; addAffinity(p2, p1, -12);
+            setEventSummary(room, p1, `${p2.name} を囮にしてバッタを丸呑み！ (満腹+60, EXP+40)`);
+            setEventSummary(room, p2, `${p1.name} に囮にされバッタに蹴られた！ (HP-20, 親密度-12)`);
+            if (involvesPlayer) logs.push(`ペア結末[狩り]: ${p1.name} が ${p2.name} を囮にして獲物を強奪！`);
+          } else if (c1 === "pincer" && c2 === "bait") {
+            p2.food = Math.min(100, p2.food + 60); p2.exp += 40;
+            p1.hp -= 20; addAffinity(p1, p2, -12);
+            setEventSummary(room, p2, `${p1.name} を囮にしてバッタを丸呑み！ (満腹+60, EXP+40)`);
+            setEventSummary(room, p1, `${p2.name} に囮にされバッタに蹴られた！ (HP-20, 親密度-12)`);
+            if (involvesPlayer) logs.push(`ペア結末[狩り]: ${p2.name} が ${p1.name} を囮にして獲物を強奪！`);
+          } else {
+            p1.stamina = Math.max(0, p1.stamina - 15); p2.stamina = Math.max(0, p2.stamina - 15);
+            setEventSummary(room, p1, `お互いに様子を見すぎてバッタに逃げられた (気力-15)`);
+            setEventSummary(room, p2, `お互いに様子を見すぎてバッタに逃げられた (気力-15)`);
+          }
+        }
+
+        // --- ゾーン3: 水際 ---
+        else if (ev.id === "p_log_entry") {
+          if (c1 === "squeeze" && c2 === "squeeze") {
+            p1.hp = Math.min(100, p1.hp + 15); p2.hp = Math.min(100, p2.hp + 15);
+            addAffinity(p1, p2, 8);
+            setEventSummary(room, p1, `倒木に寄り添って安全に休んだ (HP+15, ${p2.name}親密度+8)`);
+            setEventSummary(room, p2, `倒木に寄り添って安全に休んだ (HP+15, ${p1.name}親密度+8)`);
+            if (involvesPlayer) logs.push(`ペア結末[倒木]: ${p1.name} と ${p2.name} は倒木で身を寄せ合った (親密度+8)`);
+          } else if (c1 === "kick_out" && c2 === "squeeze") {
+            p1.hp = Math.min(100, p1.hp + 20); p2.hp -= 25; addAffinity(p2, p1, -15);
+            setEventSummary(room, p1, `${p2.name} を蹴り出して倒木を独占！ (HP+20)`);
+            setEventSummary(room, p2, `${p1.name} に倒木から蹴り出された！ (HP-25, 親密度-15)`);
+            if (involvesPlayer) logs.push(`ペア結末[倒木]: ${p1.name} が ${p2.name} を倒木から蹴り出した！`);
+          } else if (c1 === "squeeze" && c2 === "kick_out") {
+            p2.hp = Math.min(100, p2.hp + 20); p1.hp -= 25; addAffinity(p1, p2, -15);
+            setEventSummary(room, p2, `${p1.name} を蹴り出して倒木を独占！ (HP+20)`);
+            setEventSummary(room, p1, `${p2.name} に倒木から蹴り出された！ (HP-25, 親密度-15)`);
+            if (involvesPlayer) logs.push(`ペア結末[倒木]: ${p2.name} が ${p1.name} を倒木から蹴り出した！`);
+          } else {
+            p1.hp -= 20; p2.hp -= 20; addAffinity(p1, p2, -10);
+            setEventSummary(room, p1, `押し合いの末2匹とも転落！ (HP-20, 親密度-10)`);
+            setEventSummary(room, p2, `押し合いの末2匹とも転落！ (HP-20, 親密度-10)`);
+            if (involvesPlayer) logs.push(`ペア結末[倒木]: 2匹は倒木の奪い合いでもつれ合って転落！`);
+          }
+        } else if (ev.id === "p_mud_bath") {
+          if (c1 === "help" && c2 === "help") {
+            p1.water = Math.min(100, p1.water + 30); p2.water = Math.min(100, p2.water + 30);
+            addAffinity(p1, p2, 10);
+            setEventSummary(room, p1, `${p2.name} と泥を塗り合って保湿！ (水分+30, 親密度+10)`);
+            setEventSummary(room, p2, `${p1.name} と泥を塗り合って保湿！ (水分+30, 親密度+10)`);
+            if (involvesPlayer) logs.push(`ペア結末[泥浴]: ${p1.name} と ${p2.name} は泥を塗り合って保湿した (親密度+10)`);
+          } else if (c1 === "take" && c2 === "help") {
+            p1.water = Math.min(100, p1.water + 45); addAffinity(p2, p1, -10);
+            setEventSummary(room, p1, `泥を独占して体に塗りたくった！ (水分+45)`);
+            setEventSummary(room, p2, `${p1.name} に泥を独占された！ (親密度-10)`);
+          } else if (c1 === "help" && c2 === "take") {
+            p2.water = Math.min(100, p2.water + 45); addAffinity(p1, p2, -10);
+            setEventSummary(room, p2, `泥を独占して体に塗りたくった！ (水分+45)`);
+            setEventSummary(room, p1, `${p2.name} に泥を独占された！ (親密度-10)`);
+          } else {
+            addAffinity(p1, p2, -6);
+            setEventSummary(room, p1, `泥を投げ合って喧嘩になった (親密度-6)`);
+            setEventSummary(room, p2, `泥を投げ合って喧嘩になった (親密度-6)`);
+          }
+        }
+
+        // --- ゾーン2: 水面 ---
+        else if (ev.id === "p_leaf") {
+          if (c1 === "coop" && c2 === "coop") {
+            addAffinity(p1, p2, 8);
+            p1.stamina = Math.min(100, p1.stamina + 20); p2.stamina = Math.min(100, p2.stamina + 20);
+            setEventSummary(room, p1, `浮葉を譲り合い耐えきった (気力+20, ${p2.name}親密度+8)`);
+            setEventSummary(room, p2, `浮葉を譲り合い耐えきった (気力+20, ${p1.name}親密度+8)`);
+            if (involvesPlayer) logs.push(`ペア結末[浮葉]: ${p1.name} と ${p2.name} は譲り合って耐えきった (親密度+8)`);
+          } else if (c1 === "kick" && c2 === "coop") {
+            p2.hp -= 25; addAffinity(p2, p1, -12);
+            setEventSummary(room, p1, `${p2.name} を葉から水中に蹴り落とした！`);
+            setEventSummary(room, p2, `${p1.name} に葉から蹴り落とされた！ (HP-25, 親密度-12)`);
+            if (involvesPlayer) logs.push(`ペア結末[浮葉]: ${p1.name} が ${p2.name} を水中に蹴り落とした！`);
+          } else if (c1 === "coop" && c2 === "kick") {
+            p1.hp -= 25; addAffinity(p1, p2, -12);
+            setEventSummary(room, p2, `${p1.name} を葉から水中に蹴り落とした！`);
+            setEventSummary(room, p1, `${p2.name} に葉から蹴り落とされた！ (HP-25, 親密度-12)`);
+            if (involvesPlayer) logs.push(`ペア結末[浮葉]: ${p2.name} が ${p1.name} を水中に蹴り落とした！`);
+          } else {
+            p1.hp -= 20; p2.hp -= 20; addAffinity(p1, p2, -8);
+            setEventSummary(room, p1, `もつれ合って共に水没！ (HP-20, 親密度-8)`);
+            setEventSummary(room, p2, `もつれ合って共に水没！ (HP-20, 親密度-8)`);
+            if (involvesPlayer) logs.push(`ペア結末[浮葉]: 2匹はもつれ合い共倒れで水没した`);
+          }
+        } else if (ev.id === "p_strider_chase") {
+          if (c1 === "coop_hunt" && c2 === "coop_hunt") {
+            p1.food = Math.min(100, p1.food + 25); p1.exp += 15;
+            p2.food = Math.min(100, p2.food + 25); p2.exp += 15;
+            addAffinity(p1, p2, 8);
+            setEventSummary(room, p1, `${p2.name} とアメンボを挟み撃ち捕獲！ (満腹+25, EXP+15, 親密度+8)`);
+            setEventSummary(room, p2, `${p1.name} とアメンボを挟み撃ち捕獲！ (満腹+25, EXP+15, 親密度+8)`);
+            if (involvesPlayer) logs.push(`ペア結末[アメンボ]: 2匹でアメンボを仕留めて山分け！(親密度+8)`);
+          } else if (c1 === "steal" && c2 === "coop_hunt") {
+            p1.food = Math.min(100, p1.food + 45); p1.exp += 25; addAffinity(p2, p1, -10);
+            setEventSummary(room, p1, `${p2.name} が追ったアメンボを横取り！ (満腹+45, EXP+25)`);
+            setEventSummary(room, p2, `${p1.name} にアメンボを横取りされた！ (親密度-10)`);
+          } else if (c1 === "coop_hunt" && c2 === "steal") {
+            p2.food = Math.min(100, p2.food + 45); p2.exp += 25; addAffinity(p1, p2, -10);
+            setEventSummary(room, p2, `${p1.name} が追ったアメンボを横取り！ (満腹+45, EXP+25)`);
+            setEventSummary(room, p1, `${p2.name} にアメンボを横取りされた！ (親密度-10)`);
+          } else {
+            setEventSummary(room, p1, `互いに邪魔し合ってアメンボに逃げられた`);
+            setEventSummary(room, p2, `互いに邪魔し合ってアメンボに逃げられた`);
+          }
+        }
+
+        // --- ゾーン1: 水中 ---
+        else if (ev.id === "p_weed_trap") {
+          if (c1 === "rescue" && c2 === "rescue") {
+            addAffinity(p1, p2, 12);
+            p1.exp += 10; p2.exp += 10;
+            setEventSummary(room, p1, `${p2.name} と助け合い水草を脱出！ (EXP+10, 親密度+12)`);
+            setEventSummary(room, p2, `${p1.name} と助け合い水草を脱出！ (EXP+10, 親密度+12)`);
+            if (involvesPlayer) logs.push(`ペア結末[水草]: ${p1.name} と ${p2.name} は助け合って脱出した (親密度+12)`);
+          } else if (c1 === "cannibal" && c2 === "rescue") {
+            p1.food = Math.min(100, p1.food + 35); p1.exp += 20;
+            p2.hp -= 25; addAffinity(p2, p1, -20);
+            setEventSummary(room, p1, `助けようとした ${p2.name} の尾をかじった！ (満腹+35, EXP+20)`);
+            setEventSummary(room, p2, `助けようとした ${p1.name} に尾をかじられた！ (HP-25, 親密度-20)`);
+            if (involvesPlayer) logs.push(`ペア結末[水草]: 恐ろしい！${p1.name} が動けない仲間の尾をかじった！`);
+          } else if (c1 === "rescue" && c2 === "cannibal") {
+            p2.food = Math.min(100, p2.food + 35); p2.exp += 20;
+            p1.hp -= 25; addAffinity(p1, p2, -20);
+            setEventSummary(room, p2, `助けようとした ${p1.name} の尾をかじった！ (満腹+35, EXP+20)`);
+            setEventSummary(room, p1, `助けようとした ${p2.name} に尾をかじられた！ (HP-25, 親密度-20)`);
+            if (involvesPlayer) logs.push(`ペア結末[水草]: 恐ろしい！${p2.name} が動けない仲間の尾をかじった！`);
+          } else {
+            p1.hp -= 15; p2.hp -= 15; addAffinity(p1, p2, -10);
+            setEventSummary(room, p1, `互いに噛みつき合って傷を負った (HP-15, 親密度-10)`);
+            setEventSummary(room, p2, `互いに噛みつき合って傷を負った (HP-15, 親密度-10)`);
+          }
+        } else if (ev.id === "p_bubble_share") {
+          if (c1 === "share_b" && c2 === "share_b") {
+            p1.stamina = Math.min(100, p1.stamina + 25); p2.stamina = Math.min(100, p2.stamina + 25);
+            addAffinity(p1, p2, 8);
+            setEventSummary(room, p1, `${p2.name} と気泡を分け合って呼吸！ (気力+25, 親密度+8)`);
+            setEventSummary(room, p2, `${p1.name} と気泡を分け合って呼吸！ (気力+25, 親密度+8)`);
+          } else if (c1 === "gulp_b" && c2 === "share_b") {
+            p1.stamina = Math.min(100, p1.stamina + 45); addAffinity(p2, p1, -10);
+            setEventSummary(room, p1, `気泡を全部吸い込んだ！ (気力+45)`);
+            setEventSummary(room, p2, `${p1.name} に気泡を独占された！ (親密度-10)`);
+          } else if (c1 === "share_b" && c2 === "gulp_b") {
+            p2.stamina = Math.min(100, p2.stamina + 45); addAffinity(p1, p2, -10);
+            setEventSummary(room, p2, `気泡を全部吸い込んだ！ (気力+45)`);
+            setEventSummary(room, p1, `${p2.name} に気泡を独占された！ (親密度-10)`);
+          } else {
+            addAffinity(p1, p2, -6);
+            setEventSummary(room, p1, `気泡を取り合って泡が弾け散った`);
+            setEventSummary(room, p2, `気泡を取り合って泡が弾け散った`);
+          }
+        } else if (ev.id === "p_beetle_danger") {
+          if (c1 === "coop_flee" && c2 === "coop_flee") {
+            addAffinity(p1, p2, 8);
+            setEventSummary(room, p1, `${p2.name} と息を合わせて逃げ延びた！ (親密度+8)`);
+            setEventSummary(room, p2, `${p1.name} と息を合わせて逃げ延びた！ (親密度+8)`);
+          } else if (c1 === "push_bait" && c2 === "coop_flee") {
+            p2.hp -= 30; addAffinity(p2, p1, -15);
+            setEventSummary(room, p1, `${p2.name} をゲンゴロウの前へ突き飛ばして逃走！`);
+            setEventSummary(room, p2, `${p1.name} に突き飛ばされゲンゴロウに噛まれた！ (HP-30, 親密度-15)`);
+          } else if (c1 === "coop_flee" && c2 === "push_bait") {
+            p1.hp -= 30; addAffinity(p1, p2, -15);
+            setEventSummary(room, p2, `${p1.name} をゲンゴロウの前へ突き飛ばして逃走！`);
+            setEventSummary(room, p1, `${p2.name} に突き飛ばされゲンゴロウに噛まれた！ (HP-30, 親密度-15)`);
+          } else {
+            p1.hp -= 20; p2.hp -= 20; addAffinity(p1, p2, -10);
+            setEventSummary(room, p1, `突き飛ばし合い共倒れでゲンゴロウに噛まれた！ (HP-20)`);
+            setEventSummary(room, p2, `突き飛ばし合い共倒れでゲンゴロウに噛まれた！ (HP-20)`);
+          }
+        }
+
+        // --- ゾーン0: 水底 ---
+        else if (ev.id === "p_yago_ambush") {
+          if (c1 === "back_off" && c2 === "back_off") {
+            addAffinity(p1, p2, 8);
+            setEventSummary(room, p1, `${p2.name} と静かに後退しヤゴを回避 (親密度+8)`);
+            setEventSummary(room, p2, `${p1.name} と静かに後退しヤゴを回避 (親密度+8)`);
+            if (involvesPlayer) logs.push(`ペア結末[ヤゴ]: 2匹は静かに後退しヤゴを回避した (親密度+8)`);
+          } else if (c1 === "push_yago" && c2 === "back_off") {
+            p2.hp -= 35; addAffinity(p2, p1, -15);
+            setEventSummary(room, p1, `${p2.name} をヤゴの巣穴へ突き飛ばした！`);
+            setEventSummary(room, p2, `${p1.name} にヤゴの前へ突き飛ばされた！ (HP-35, 親密度-15)`);
+            if (involvesPlayer) logs.push(`ペア結末[ヤゴ]: ${p1.name} が ${p2.name} をヤゴの前へ突き飛ばした！`);
+          } else if (c1 === "back_off" && c2 === "push_yago") {
+            p1.hp -= 35; addAffinity(p1, p2, -15);
+            setEventSummary(room, p2, `${p1.name} をヤゴの巣穴へ突き飛ばした！`);
+            setEventSummary(room, p1, `${p2.name} にヤゴの前へ突き飛ばされた！ (HP-35, 親密度-15)`);
+            if (involvesPlayer) logs.push(`ペア結末[ヤゴ]: ${p2.name} が ${p1.name} をヤゴの前へ突き飛ばした！`);
+          } else {
+            p1.hp -= 25; p2.hp -= 25; addAffinity(p1, p2, -8);
+            setEventSummary(room, p1, `もつれ合って暴れ、ヤゴに2匹とも挟まれた！ (HP-25)`);
+            setEventSummary(room, p2, `もつれ合って暴れ、ヤゴに2匹とも挟まれた！ (HP-25)`);
+          }
+        } else if (ev.id === "p_mud_burrow") {
+          if (c1 === "cuddle" && c2 === "cuddle") {
+            p1.hp = Math.min(100, p1.hp + 15); p2.hp = Math.min(100, p2.hp + 15);
+            addAffinity(p1, p2, 8);
+            setEventSummary(room, p1, `${p2.name} と泥に身を寄せて休んだ (HP+15, 親密度+8)`);
+            setEventSummary(room, p2, `${p1.name} と泥に身を寄せて休んだ (HP+15, 親密度+8)`);
+          } else if (c1 === "monopolize" && c2 === "cuddle") {
+            p1.hp = Math.min(100, p1.hp + 25); addAffinity(p2, p1, -12);
+            setEventSummary(room, p1, `${p2.name} を追い出して泥床を独占！ (HP+25)`);
+            setEventSummary(room, p2, `${p1.name} に泥床から追い出された！ (親密度-12)`);
+          } else if (c1 === "cuddle" && c2 === "monopolize") {
+            p2.hp = Math.min(100, p2.hp + 25); addAffinity(p1, p2, -12);
+            setEventSummary(room, p2, `${p1.name} を追い出して泥床を独占！ (HP+25)`);
+            setEventSummary(room, p1, `${p2.name} に泥床から追い出された！ (親密度-12)`);
+          } else {
+            addAffinity(p1, p2, -6);
+            setEventSummary(room, p1, `泥の寝床を争って泥まみれになった`);
+            setEventSummary(room, p2, `泥の寝床を争って泥まみれになった`);
           }
         }
       });
     } else {
+      // --- 単独・全体イベント解決 ---
       actorsInZone.forEach(a => {
         if (ev.id === "g_worm") {
-          if (a.eventChoice === "coop") {
-            a.food = Math.min(100, a.food + 30);
-            setEventSummary(room, a, `大ミミズを分け合って食べた（満腹度+30, EXP+10）`);
-            if (a.isPlayer) logs.push(`${a.name}: 大ミミズを分け合って食べた（満腹+30）`);
+          if (a.eventChoice === "share_w") {
+            a.food = Math.min(100, a.food + 35); a.exp += 15;
+            setEventSummary(room, a, `大ミミズを仲良く食べた (満腹+35, EXP+15)`);
           } else {
-            a.food = Math.min(100, a.food + 65); a.exp += 15;
-            setEventSummary(room, a, `大ミミズを強奪して独り占め！（満腹度+65, EXP+15）`);
-            if (a.isPlayer) logs.push(`${a.name}: 大ミミズを強奪して独り占め！（満腹+65）`);
+            a.food = Math.min(100, a.food + 65); a.exp += 25;
+            setEventSummary(room, a, `大ミミズを独り占めして丸呑み！ (満腹+65, EXP+25)`);
           }
-        } else if (ev.id === "s_moss" && a.eventChoice === "eat") {
-          if (Math.random() < 0.65) {
-            a.exp += 18; a.length += 0.2;
-            setEventSummary(room, a, `光る苔は極上の栄養だった！（EXP+18, 体長+0.2cm）`);
-            if (a.isPlayer) logs.push(`${a.name}: 光る苔は極上の栄養だった！（EXP+18）`);
+        } else if (ev.id === "s_moss") {
+          if (a.eventChoice === "eat") {
+            if (Math.random() < 0.7) {
+              a.exp += 20; a.length += 0.2;
+              setEventSummary(room, a, `光る苔は滋養強壮だった！ (EXP+20, 体長+0.2cm)`);
+            } else {
+              a.hp -= 15;
+              setEventSummary(room, a, `光る苔に微毒が含まれていた！ (HP-15)`);
+            }
           } else {
-            a.hp -= 15;
-            setEventSummary(room, a, `光る苔に微毒が含まれていた！（HP-15）`);
-            if (a.isPlayer) logs.push(`${a.name}: 光る苔に微毒が含まれていた！（HP-15）`);
+            setEventSummary(room, a, `怪しい光る苔を見送った`);
+          }
+        } else if (ev.id === "s_scorching_sun") {
+          if (a.eventChoice === "shade") {
+            a.stamina = Math.min(100, a.stamina + 20);
+            setEventSummary(room, a, `日陰で休んで乾燥を防いだ (気力+20)`);
+          } else {
+            a.food = Math.min(100, a.food + 25); a.water = Math.max(0, a.water - 15);
+            setEventSummary(room, a, `炎天下で虫を捕食したが乾燥が進んだ (満腹+25, 水分-15)`);
+          }
+        } else if (ev.id === "s_floating_flower") {
+          if (a.eventChoice === "ride") {
+            a.stamina = Math.min(100, a.stamina + 30); a.hp = Math.min(100, a.hp + 10);
+            setEventSummary(room, a, `スイレンの花びらに揺られて休息 (HP+10, 気力+30)`);
+          } else {
+            a.food = Math.min(100, a.food + 30); a.exp += 15;
+            setEventSummary(room, a, `花の下で虫を奇襲捕獲！ (満腹+30, EXP+15)`);
+          }
+        } else if (ev.id === "g_rain") {
+          if (a.eventChoice === "rush") {
+            a.food = Math.min(100, a.food + 35); a.exp += 20;
+            setEventSummary(room, a, `豪雨の恵みで落ちた虫を乱獲！ (満腹+35, EXP+20)`);
+          } else {
+            a.stamina = Math.min(100, a.stamina + 25);
+            setEventSummary(room, a, `水中で安全に雨宿りした (気力+25)`);
+          }
+        } else if (ev.id === "g_heron") {
+          if (a.eventChoice === "threat") {
+            a.stamina = Math.max(0, a.stamina - 20);
+            setEventSummary(room, a, `体を膨らませてサギを威嚇・牽制した (気力-20)`);
+          } else {
+            a.food = Math.max(0, a.food - 10);
+            setEventSummary(room, a, `泥の底にじっと潜んでサギをやり過ごした`);
+          }
+        } else if (ev.id === "g_bloom") {
+          if (a.eventChoice === "surface") {
+            a.stamina = Math.min(100, a.stamina + 20);
+            setEventSummary(room, a, `水面で新鮮な空気を吸い込んだ (気力+20)`);
+          } else {
+            a.hp = Math.max(1, a.hp - 10);
+            setEventSummary(room, a, `水底で息苦しさに耐えた (HP-10)`);
           }
         }
       });
@@ -479,7 +742,6 @@ function resolvePredator(room, logs) {
     }
   }
 }
-
 function resolveActions(room, logs) {
   const alive = Object.values(room.actors).filter(a => a.alive);
   const matingDone = new Set();
@@ -521,7 +783,7 @@ function resolveActions(room, logs) {
     } else if (act === "attack" && target && target.alive && target.zone === a.zone) {
       target.hp -= 20;
       addAffinity(target, a, -30);
-      if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `${target.name} を攻撃して排除した！（相手HP-20）`;
+      if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `${target.name} を攻撃して排除した！（相手HP-20, 親密度-30）`;
       if (target.isPlayer && room.turnSummaries[target.id]) room.turnSummaries[target.id].danger = `${a.name} から攻撃を受けた！ (HP-20)`;
       if (a.isPlayer || target.isPlayer) logs.push(`⚔️ ${a.name} が ${target.name} を攻撃した！（${target.name} HP-20）`);
     } else if (act === "feed") {
