@@ -450,7 +450,7 @@
           </span>
         </div>
         <div id="ev-desc" style="color:#ccc; margin-top:2px;">周囲の様子をうかがっている……</div>
-        <select id="ev-choice-sel" style="margin-top:4px;"></select>
+        <select id="ev-choice-sel" style="display:none; margin-top:4px;"></select>
       </div>
 
       <!-- 行動入力パネル -->
@@ -626,7 +626,7 @@ let hasShownTraitModal = false;
 
 let lastRenderedTurn = -1;
 let lastRenderedEventId = null;
-let lastShownSummaryTurn = -1;
+let lastShownSummaryTurn = 0; // ★0からスタートして1ターン目のサマリーを確実に拾う
 
 const STAGE_NAMES = ["", "オタマジャクシ", "後足が生えた", "前足が生えた", "変態期(尾あり)", "子ガエル", "成体カエル"];
 const ZONE_NAMES = ["① 泥底・泥地", "② 水中(水草)", "③ 水面・浅瀬", "④ 水際・倒木", "⑤ 草むら・陸地"];
@@ -738,9 +738,10 @@ function handleStateUpdate(state) {
       showCoopConfirmModal(state.coopRequests[myActorId]);
     }
 
+    // ★修正：sum.turn > 1 を削除し、1ターン目から正しくサマリーを表示
     if (state.status === "playing" && state.turnSummaries && state.turnSummaries[myActorId]) {
       const sum = state.turnSummaries[myActorId];
-      if (sum.turn > lastShownSummaryTurn && sum.turn > 1) {
+      if (sum.turn > lastShownSummaryTurn) {
         showTurnSummaryModal(sum);
         lastShownSummaryTurn = sum.turn;
       }
@@ -800,7 +801,6 @@ function showTraitModal(state) {
   document.getElementById("trait-modal").style.display = "flex";
 }
 
-// ★修正：モーダルを閉じた直後に必ず初期化して描画を強制実行する！
 function closeTraitModal() {
   document.getElementById("trait-modal").style.display = "none";
   const isLandscape = window.matchMedia("(orientation: landscape) and (max-height: 520px)").matches;
@@ -827,8 +827,9 @@ function respondCoopRequest(accept) {
   }
 }
 
+// ★修正：タイトルで「- 1」を引かず、sum.turn をそのまま表示
 function showTurnSummaryModal(sum) {
-  document.getElementById("sum-turn-title").innerText = `【 TURN ${sum.turn - 1} 生存結果 】`;
+  document.getElementById("sum-turn-title").innerText = `【 TURN ${sum.turn} 生存結果 】`;
   document.getElementById("sum-action-txt").innerText = sum.action || "行動なし";
   document.getElementById("sum-event-txt").innerText = sum.event || "特になし";
   document.getElementById("sum-meta-txt").innerText = sum.metabolism || "正常";
@@ -1011,7 +1012,10 @@ function renderGameUI(state) {
       document.getElementById("txt-exp-val").innerText = `${me.exp || 0} / ${nextReq} EXP (${expPct}%)`;
 
       document.getElementById("txt-eggs").innerText = me.stage < 4 ? "🥚".repeat(me.eggs) || "なし" : "なし (永久死亡)";
-      document.getElementById("txt-offspring").innerText = me.offspringCount || 0;
+      
+      // ★修正：存在しないtxt-offspringへの代入を安全ガード
+      const offspringEl = document.getElementById("txt-offspring");
+      if (offspringEl) offspringEl.innerText = me.offspringCount || 0;
 
       document.getElementById("val-hp").innerText = Math.round(me.hp);
       document.getElementById("val-food").innerText = Math.round(me.food);
@@ -1020,7 +1024,7 @@ function renderGameUI(state) {
 
       const myZoneSafe = (me.zone !== undefined && me.zone !== null) ? parseInt(me.zone, 10) : 1;
 
-      // ★セレクトボックスが空なら確実に再初期化する
+      // セレクトボックスが空なら確実に再初期化する
       const moveSel = document.getElementById("move-sel");
       if (lastRenderedTurn !== state.turn || moveSel.options.length === 0) {
         updateMoveSelect(me.stage || 1, myZoneSafe);
@@ -1039,9 +1043,11 @@ function renderGameUI(state) {
         btn.innerText = "この行動で確定する ✔";
       }
 
+      // ★ミニマップの描画を確実に呼ぶ
       renderMinimap(state, myZoneSafe);
     }
 
+    // ★エリアイベントの描画を確実に呼ぶ
     renderAreaEventCard(state, me);
     lastRenderedTurn = state.turn;
 
@@ -1282,6 +1288,7 @@ function updateCoopChanceDisplay() {
   badge.style.color = chance >= 70 ? "#77ff77" : (chance >= 40 ? "#ffff77" : "#ff7777");
 }
 
+// ★修正：エリアイベントと空プルダウンの非表示制御
 function renderAreaEventCard(state, me) {
   if (!me) return;
   const myZ = parseInt(me.zone, 10) || 1;
@@ -1293,6 +1300,7 @@ function renderAreaEventCard(state, me) {
   if (!ev) {
     document.getElementById("ev-title").innerText = "【平穏】";
     document.getElementById("ev-desc").innerText = "周囲に特別な事件は起きていない。静かに時間が流れている。";
+    sel.style.display = "none";
     sel.innerHTML = "<option value='none'>通常通り行動する</option>";
     partnerBadge.style.display = "none";
     return;
@@ -1326,8 +1334,10 @@ function renderAreaEventCard(state, me) {
         opt.innerText = c.text;
         sel.appendChild(opt);
       });
+      sel.style.display = "block";
     } else {
       sel.innerHTML = "<option value='none'>見守る</option>";
+      sel.style.display = "none"; // 選択肢がない時は非表示にして枠が出ないようにする
     }
   }
 }
