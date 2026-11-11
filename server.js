@@ -235,6 +235,10 @@ function addExperience(actor, amount) {
   actor.exp += Math.max(0, Math.round(amount * EXP_GAIN_MULTIPLIER));
 }
 
+function appendSocialLog(summary, text) {
+  if (summary) summary.socialLog = summary.socialLog ? `${summary.socialLog} ${text}` : text;
+}
+
 // ==========================================
 // ルーム管理
 // ==========================================
@@ -807,10 +811,14 @@ function resolveActions(room, logs) {
       const partner = room.actors[actData.targetId];
       const acceptedHuddle = room.coopAccepted[a.id];
       if (partner && acceptedHuddle && acceptedHuddle.type === "huddle" && acceptedHuddle.partnerId === partner.id && partner.alive && partner.zone === a.zone) {
+        coopDone.add(a.id);
+        coopDone.add(partner.id);
         a.water = Math.min(100, a.water + 25);
         partner.water = Math.min(100, partner.water + 25);
         addAffinity(a, partner, 8);
         room.turnSummaries[a.id].action = `【カエル団子】${partner.name} と身を寄せ合って保湿した。（水分+25, 親密度+8）`;
+        appendSocialLog(room.turnSummaries[partner.id], `🐸 ${a.name} とのカエル団子が成功し、保湿と親密度上昇の効果を得た。（水分+25、親密度+8）`);
+        logs.push(`🐸 【カエル団子成功】${a.name} と ${partner.name} が身を寄せ合い、保湿した！（水分+25、親密度+8）`);
       } else {
         a.water = Math.min(100, a.water + 15);
         room.turnSummaries[a.id].action = "【カエル団子】相手が見つからず、一人で体を丸めて保湿した。";
@@ -834,7 +842,9 @@ function resolveActions(room, logs) {
     // ⑧ 求愛・繁殖
     else if (act === "mate") {
       const target = room.actors[actData.targetId];
-      if (a.stage >= 6 && target && target.alive && target.zone === a.zone && target.stage >= 6 && target.gender !== a.gender) {
+      if (a.stamina < 50) {
+        room.turnSummaries[a.id].action = "【求愛不可】求愛には気力が50以上必要です。";
+      } else if (a.stage >= 6 && target && target.alive && target.zone === a.zone && target.stage >= 6 && target.gender !== a.gender) {
         const aff = (a.affinity && a.affinity[target.id]) || 0;
         let baseEggs = 18;
         if (aff >= 70) baseEggs = Math.floor(46 + Math.random() * 15);
@@ -843,12 +853,11 @@ function resolveActions(room, logs) {
 
         a.offspringCount += baseEggs;
         target.offspringCount += baseEggs;
-        a.stamina = Math.max(0, a.stamina - 30);
-        target.stamina = Math.max(0, target.stamina - 30);
+        a.stamina = Math.max(0, a.stamina - 50);
         addAffinity(a, target, 20);
 
-        room.turnSummaries[a.id].action = `💖 【交配成功！】${target.name} と愛を交わし、卵を ${baseEggs} 個産卵した！（親密度+20）`;
-        room.turnSummaries[target.id].action = `💖 【交配成功！】${a.name} と愛を交わし、卵を ${baseEggs} 個産卵した！（親密度+20）`;
+        room.turnSummaries[a.id].action = `💖 【交配成功！】${target.name} と愛を交わし、卵を ${baseEggs} 個産卵した！（気力-50、親密度+20）`;
+        appendSocialLog(room.turnSummaries[target.id], `💖 ${a.name} からの求愛を受け入れて交配が成功。卵を ${baseEggs} 個産卵した。（親密度+20）`);
         logs.push(`💕 【愛の結晶】${a.name} と ${target.name} が結ばれ、${baseEggs} 個の卵が産み落とされた！`);
       } else {
         room.turnSummaries[a.id].action = "【求愛失敗】相手に受け入れられず、虚しく鳴き声が響いた。";
@@ -1060,13 +1069,14 @@ function resolveGrowth(room, logs) {
 
 // ゲーム終了処理（スコア計算）
 function finishGame(room) {
-  const ranking = Object.values(room.actors).filter(a => a.isPlayer).map(a => {
+  const ranking = Object.values(room.actors).map(a => {
     const survivalTurn = a.alive ? room.turn : Math.max(1, room.turn - 1);
     const survivalBonus = a.alive ? 1500 : 0;
-    const score = (survivalTurn * 100) + (a.offspringCount * 50) + (a.level * 150) + survivalBonus;
+    const score = (survivalTurn * 100) + (a.offspringCount * 50) + (a.level * 200) + survivalBonus;
     return {
       id: a.id,
       name: a.name,
+      isPlayer: a.isPlayer,
       gender: a.gender,
       level: a.level,
       alive: a.alive,
@@ -1089,6 +1099,13 @@ function logsPush(room, txt) {
 // クライアント配信用ステート作成
 function getSanitizedRoomState(room) {
   const playerNames = Object.values(room.actors).filter(a => a.isPlayer).map(a => a.name).filter(Boolean);
+  const feedChances = {};
+  Object.values(room.actors).forEach(actor => {
+    feedChances[actor.id] = {};
+    Object.entries(PREY_MASTER).forEach(([zone, preyList]) => {
+      feedChances[actor.id][zone] = Object.fromEntries(preyList.map(prey => [prey.id, calculateFeedChance(actor, prey)]));
+    });
+  });
   return {
     id: room.id,
     hostId: room.hostId,
@@ -1102,6 +1119,7 @@ function getSanitizedRoomState(room) {
     eventsByZone: room.eventsByZone,
     pairTargets: room.pairTargets,
     predatorThreats: room.predatorThreats || {},
+    feedChances,
     turnSummaries: room.turnSummaries,
     logs: room.logs.filter(line => playerNames.some(name => line.includes(name))),
     ranking: room.ranking || null
@@ -1225,6 +1243,11 @@ resolveEvents = function(room, logs) {
       }
     }
   }
+  Object.values(room.turnSummaries).forEach(summary => {
+    if (!summary.socialLog) return;
+    const eventText = summary.event || "特になし";
+    summary.event = eventText === "特になし" ? summary.socialLog : `${eventText} ${summary.socialLog}`;
+  });
   room.eventChoices = savedChoices;
 };
 
@@ -1346,7 +1369,7 @@ decideNpcActions = function(room) {
       act = "rest";
     } else if (npc.water <= 35) {
       act = "water";
-    } else if (npc.stage >= 6 && mateCandidates.length && Math.random() < (personality === PERSONALITIES[0] ? 0.28 : personality === PERSONALITIES[3] ? 0.08 : 0.18)) {
+    } else if (npc.stage >= 6 && npc.stamina >= 50 && mateCandidates.length && Math.random() < (personality === PERSONALITIES[0] ? 0.28 : personality === PERSONALITIES[3] ? 0.08 : 0.18)) {
       act = "mate";
       targetId = mateCandidates[0].id;
     } else if (personality === PERSONALITIES[0] && npc.stage >= 5 && target && Math.random() < 0.65) {
