@@ -181,10 +181,12 @@
       <div style="font-size:11px; color:#aaa; margin-bottom:8px;">全員が集まるまで待機しています</div>
       <button class="secondary" style="padding:6px; font-size:11px;" onclick="copyInviteUrl()">🔗 招待URLをコピーしてLINE等で呼ぶ</button>
 
+      <button class="secondary" style="margin-top:6px; padding:6px; border-color:var(--danger); color:var(--danger);" onclick="leaveRoom()">待機所から退出</button>
       <div style="text-align:left; font-size:11px; color:var(--accent); font-weight:bold; margin-top:12px; margin-bottom:4px;">
         参加カエル一覧:
       </div>
       <div id="lobby-member-list"></div>
+      <div id="lobby-capacity" style="font-size:10px; color:#aabbab; margin-top:4px;"></div>
       <div style="font-size:10px; color:#778877; margin:6px 0 10px 0;">
         ※不足枠は自動で兄弟NPCが加わり、計25匹でスタートします。
       </div>
@@ -355,6 +357,7 @@
 
   <!-- 画面2：ゲーム本編 -->
   <div id="game-screen">
+    <div id="spectator-banner" class="panel" style="display:none; grid-column:1/-1; color:var(--accent-gold); text-align:center;">観戦モード：プレイヤーの状況を観戦中</div>
     
     <div id="col-visual" style="display:flex; flex-direction:column; gap:6px;">
       <div class="panel" style="padding:6px 10px;">
@@ -668,13 +671,18 @@ function createRoom() {
   joinRoom(r);
 }
 
+const spectatorOption = document.createElement("label");
+spectatorOption.style.cssText = "display:flex; align-items:center; gap:6px; margin-top:6px; font-size:11px; color:#bbb;";
+spectatorOption.innerHTML = '<input type="checkbox" id="join-as-spectator" style="width:auto; margin:0;"> 観戦モードで参加';
+document.getElementById("room-input").insertAdjacentElement("afterend", spectatorOption);
+
 function joinRoomByInput() {
   const r = document.getElementById("room-input").value.trim();
   if (!r) { alert("合言葉を入力してください"); return; }
-  joinRoom(r);
+  joinRoom(r, document.getElementById("join-as-spectator").checked);
 }
 
-function joinRoom(roomId) {
+function joinRoom(roomId, spectator = false) {
   currentRoomId = roomId;
   const name = document.getElementById("user-name").value.trim() || "カエル";
 
@@ -688,12 +696,21 @@ function joinRoom(roomId) {
   ws = new WebSocket(`${protocol}//${window.location.host}`);
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ type: "JOIN_ROOM", roomId: roomId, name: name }));
+    ws.send(JSON.stringify({ type: "JOIN_ROOM", roomId: roomId, name: name, spectator }));
   };
 
   ws.onmessage = (e) => {
     const data = JSON.parse(e.data);
-    if (data.type === "INIT") {
+    if (data.type === "JOIN_ERROR") {
+      document.getElementById("lobby-join-area").style.display = "block";
+      document.getElementById("lobby-wait-area").style.display = "none";
+      alert(data.message);
+      ws.close();
+    } else if (data.type === "LEFT_ROOM") {
+      showLobbyAfterExit();
+    } else if (data.type === "ROOM_CLOSED") {
+      showLobbyAfterExit(data.message);
+    } else if (data.type === "INIT") {
       myActorId = data.myId;
     } else if (data.type === "STATE_UPDATE") {
       lastState = data.state;
@@ -721,6 +738,32 @@ function requestStartGame() {
   }
 }
 
+function leaveRoom() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "LEAVE_ROOM" }));
+  } else {
+    showLobbyAfterExit();
+  }
+}
+
+function showLobbyAfterExit(message) {
+  document.getElementById("lobby-screen").style.display = "block";
+  document.getElementById("lobby-join-area").style.display = "block";
+  document.getElementById("lobby-wait-area").style.display = "none";
+  document.getElementById("game-screen").style.display = "none";
+  document.getElementById("result-screen").style.display = "none";
+  document.getElementById("trait-modal").style.display = "none";
+  currentRoomId = null;
+  myActorId = null;
+  lastState = null;
+  hasShownTraitModal = false;
+  lastRenderedTurn = 0;
+  lastShownSummaryTurn = 0;
+  lastRenderedEventId = null;
+  window.history.replaceState({}, "", window.location.pathname);
+  if (message) alert(message);
+}
+
 function handleStateUpdate(state) {
   try {
     if (state.status === "waiting") {
@@ -730,7 +773,12 @@ function handleStateUpdate(state) {
 
     if (state.status === "playing" && !hasShownTraitModal) {
       document.getElementById("lobby-screen").style.display = "none";
-      showTraitModal(state);
+      if (state.actors[myActorId]) {
+        showTraitModal(state);
+      } else {
+        const isLandscape = window.matchMedia("(orientation: landscape) and (max-height: 520px)").matches;
+        document.getElementById("game-screen").style.display = isLandscape ? "grid" : "block";
+      }
       hasShownTraitModal = true;
     }
 
@@ -765,6 +813,8 @@ function renderLobby(state) {
   listEl.innerHTML = "";
 
   const players = Object.values(state.actors).filter(a => a.isPlayer);
+  const capacityEl = document.getElementById("lobby-capacity");
+  if (capacityEl) capacityEl.innerText = `参加プレイヤー: ${players.length} / 8人`;
   players.forEach(p => {
     const isMe = (p.id === myActorId);
     const isHost = (p.id === state.hostId);
@@ -984,6 +1034,10 @@ function renderGameUI(state) {
     document.getElementById("txt-alive").innerText = `生存: ${aliveList.length}/25匹`;
 
     const me = state.actors[myActorId];
+    const observing = !me || !me.alive;
+    const spectatorBanner = document.getElementById("spectator-banner");
+    if (spectatorBanner) spectatorBanner.style.display = observing ? "block" : "none";
+    document.querySelectorAll("#move-sel, #act-sel, #feed-target-sel, #actor-target-sel, #ev-choice-sel, #submit-btn, #coop-feed-chk").forEach(el => { el.disabled = observing; });
     if (me) {
       document.getElementById("txt-level-badge").innerText = `Lv.${me.level}`;
       document.getElementById("txt-stage-name").innerText = STAGE_NAMES[me.stage] || "成体";
@@ -1030,8 +1084,10 @@ function renderGameUI(state) {
 
       renderMinimap(state, myZoneSafe);
     }
+    if (!me) renderMinimap(state, -1);
 
     renderAreaEventCard(state, me);
+    updateThreatIndicator(state, me);
     lastRenderedTurn = state.turn;
 
     const pListEl = document.getElementById("player-list");
@@ -1063,6 +1119,25 @@ function renderGameUI(state) {
 }
 
 // ミニマップの集計
+function updateThreatIndicator(state, me) {
+  const alert = document.getElementById("txt-alert");
+  if (!alert) return;
+  const threats = state.predatorThreats || {};
+  const zones = ["水底", "水中", "水面", "水際", "草むら"];
+  if (!me) {
+    const dangerZones = Object.keys(threats).filter(z => threats[z] === true).map(z => zones[Number(z)]);
+    alert.innerText = dangerZones.length ? `⚠️ 天敵の気配：${dangerZones.join("・")}。襲撃の可能性があります。` : "気配なし。今ターンの天敵襲撃はありません。";
+    return;
+  }
+  const moveSel = document.getElementById("move-sel");
+  const zone = me.alive && moveSel && moveSel.value !== "" ? Number(moveSel.value) : Number(me.zone);
+  if (threats[zone] === true) {
+    alert.innerText = `⚠️ ${zones[zone]}に天敵の気配。今ターン襲撃の可能性があります。`;
+  } else {
+    alert.innerText = `${zones[zone] || "周囲"}：気配なし。今ターンの天敵襲撃はありません。`;
+  }
+}
+
 function renderMinimap(state, myCurrentZone) {
   for (let z = 0; z < 5; z++) {
     const zoneBox = document.getElementById(`mm-z-${z}`);
@@ -1107,6 +1182,7 @@ function updateMoveSelect(myStage, currentZone) {
 function onMoveSelectChange() {
   updatePreyOptions();
   updateActorTargetOptions();
+  if (lastState) updateThreatIndicator(lastState, lastState.actors && lastState.actors[myActorId]);
 }
 
 const callActionOption = document.createElement("option");
@@ -1181,15 +1257,16 @@ function updatePreyOptions() {
   const prev = sel.value;
   sel.innerHTML = "";
 
-  const currentStamina = (me.stamina !== undefined) ? me.stamina : 100;
-  const staRatio = Math.max(0.1, currentStamina / 100);
-  const myPower = ((me.length || 1) * 5) + ((me.weight || 0.5) * 3) + (currentStamina * 0.25);
+  const startStats = me.turnStartStats || me;
+  const currentStamina = (startStats.stamina !== undefined) ? startStats.stamina : 100;
+  const staRatio = Math.max(0, currentStamina / 100);
+  const myPower = ((startStats.length || 1) * 5) + ((startStats.weight || 0.5) * 3) + (currentStamina * 0.5);
 
   preyList.forEach(p => {
     let chance = 60 + (myPower - p.diff) * 2;
     // 気力50%未満で疲労ペナルティ
     if (staRatio < 0.5) {
-      chance -= Math.round((0.5 - staRatio) * 40);
+      chance -= Math.round((0.5 - staRatio) * 60);
     }
     if (me.trait === "大食漢") chance += 5;
     if (me.trait === "慎重") chance -= 3;
@@ -1271,6 +1348,7 @@ function updateCoopChanceDisplay() {
   if (target.personality === "利己") baseChance = 20;
   if (target.personality === "獰猛") baseChance = 15;
 
+  baseChance = target.personality === "温厚" ? 50 : (target.personality === "利己" ? 20 : 35);
   let chance = baseChance + (aff * 0.5);
   if (me.hp >= 70 && me.stamina >= 50) chance += 10;
   if (me.hp <= 30) chance -= 20;
@@ -1426,8 +1504,9 @@ function updateAnim() {
 
 function renderScene(ctx) {
   const me = (lastState && lastState.actors) ? lastState.actors[myActorId] : null;
-  const myZone = me ? (parseInt(me.zone, 10) || 1) : 1;
-  const myStage = me ? (parseInt(me.stage, 10) || 1) : 1;
+  const focusActor = (me && me.alive) ? me : (lastState && Object.values(lastState.actors).find(a => a.isPlayer && a.alive)) || (lastState && Object.values(lastState.actors).find(a => a.alive));
+  const myZone = focusActor ? (parseInt(focusActor.zone, 10) || 1) : 1;
+  const myStage = focusActor ? (parseInt(focusActor.stage, 10) || 1) : 1;
 
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, 130, 150);

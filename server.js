@@ -16,6 +16,7 @@ app.use(express.static(path.join(__dirname, "public")));
 const TOTAL_TURNS = 35;
 const TURN_DURATION_SEC = 120;
 const TOTAL_FROGS = 25;
+const MAX_PLAYERS = 8;
 
 const WEATHERS = ["快晴", "曇り", "雨", "日照り", "豪雨"];
 const TRAITS = ["頑強", "大食漢", "身軽", "高代謝", "慎重"];
@@ -290,7 +291,12 @@ wss.on("connection", (ws) => {
 
       if (data.type === "JOIN_ROOM") {
         myRoomId = data.roomId;
-        myActorId = `p_${Math.random().toString(36).substring(2, 8)}`;
+        myActorId = `${data.spectator ? "s" : "p"}_${Math.random().toString(36).substring(2, 8)}`;
+        if (data.spectator && !rooms[myRoomId]) {
+          ws.send(JSON.stringify({ type: "JOIN_ERROR", message: "観戦できるゲームが見つかりません。" }));
+          myRoomId = null;
+          return;
+        }
 
         if (!rooms[myRoomId]) {
           rooms[myRoomId] = {
@@ -316,18 +322,61 @@ wss.on("connection", (ws) => {
         }
 
         const room = rooms[myRoomId];
+        if (!data.spectator && room.status !== "waiting") {
+          ws.send(JSON.stringify({ type: "JOIN_ERROR", message: "ゲーム開始後はプレイヤーとして参加できません。観戦モードを選んでください。" }));
+          myRoomId = null;
+          return;
+        }
+        const roomPlayerCount = Object.values(room.actors).filter(actor => actor.isPlayer).length;
+        if (!data.spectator && roomPlayerCount >= MAX_PLAYERS) {
+          ws.send(JSON.stringify({ type: "JOIN_ERROR", message: `このルームは満員です（プレイヤー最大${MAX_PLAYERS}人）。` }));
+          myRoomId = null;
+          return;
+        }
         room.clients[myActorId] = ws;
         room.actors[myActorId] = createActor(myActorId, data.name || "アマガエル", true);
 
-        ws.send(JSON.stringify({ type: "INIT", myId: myActorId }));
+        if (data.spectator) delete room.actors[myActorId];
+        ws.send(JSON.stringify({ type: "INIT", myId: myActorId, spectator: !!data.spectator }));
         broadcastState(room);
+      }
+
+      else if (data.type === "LEAVE_ROOM" && myRoomId) {
+        const room = rooms[myRoomId];
+        if (room && room.status === "waiting") {
+          delete room.clients[myActorId];
+          delete room.actors[myActorId];
+          delete room.actions[myActorId];
+          delete room.eventChoices[myActorId];
+
+          const remainingPlayers = Object.values(room.actors).filter(actor => actor.isPlayer);
+          if (room.hostId === myActorId) room.hostId = remainingPlayers[0]?.id || null;
+
+          ws.send(JSON.stringify({ type: "LEFT_ROOM" }));
+          if (remainingPlayers.length === 0) {
+            Object.values(room.clients).forEach(client => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: "ROOM_CLOSED", message: "参加者がいなくなったため、ルームを閉じました。" }));
+                client.close();
+              }
+            });
+            if (room.timer) clearInterval(room.timer);
+            delete rooms[room.id];
+          } else {
+            broadcastState(room);
+          }
+          myRoomId = null;
+          myActorId = null;
+          ws.close();
+        }
       }
 
       else if (data.type === "START_GAME" && myRoomId) {
         const room = rooms[myRoomId];
-        if (room && room.hostId === myActorId && room.status === "waiting") {
+        if (room && room.hostId === myActorId && room.status === "waiting" && Object.values(room.actors).some(actor => actor.isPlayer)) {
           // NPC補填（計25匹）
           const currentCount = Object.keys(room.actors).length;
+          room.playerCountAtStart = Object.values(room.actors).filter(a => a.isPlayer).length;
           const npcNames = ["アオ", "ミドリ", "クロ", "シロ", "チビ", "ゴン", "モモ", "タマ", "ハル", "ナツ", "アキ", "フユ", "カゲ", "ツユ", "レン", "サクラ", "スミレ", "カエデ", "ヤマト", "ムサシ", "ソラ", "カイ", "リク", "シン"];
           for (let i = currentCount; i < TOTAL_FROGS; i++) {
             const npcId = `npc_${i + 1}`;
@@ -362,6 +411,7 @@ wss.on("connection", (ws) => {
               // NPCの受託判定
               const aff = (targetActor.affinity && targetActor.affinity[fromActor.id]) || 0;
               let baseChance = targetActor.personality === "温厚" ? 50 : (targetActor.personality === "利己" ? 20 : 35);
+              baseChance = targetActor.personality === PERSONALITIES[0] ? 50 : (targetActor.personality === PERSONALITIES[1] ? 20 : 35);
               let chance = baseChance + (aff * 0.5);
               if (data.coopType === "huddle" && targetActor.water <= 50) chance += 20;
               if (data.coopType === "feed" && targetActor.food <= 50) chance += 20;
@@ -402,13 +452,20 @@ wss.on("connection", (ws) => {
             }
           }
           delete room.coopRequests[myActorId];
-          broadcastState(room);
+          const alivePlayers = Object.values(room.actors).filter(a => a.isPlayer && a.alive);
+          if (alivePlayers.length > 0 && alivePlayers.every(p => p.ready) && Object.keys(room.coopRequests).length === 0) {
+            resolveTurn(room);
+          } else {
+            broadcastState(room);
+          }
         }
       }
 
       else if (data.type === "SUBMIT_ACTION" && myRoomId) {
         const room = rooms[myRoomId];
         if (room && room.status === "playing") {
+          const submittingActor = room.actors[myActorId];
+          if (!submittingActor || !submittingActor.isPlayer || !submittingActor.alive) return;
           room.actions[myActorId] = data.action;
           room.eventChoices[myActorId] = data.eventChoice || "none";
           if (room.actors[myActorId]) room.actors[myActorId].ready = true;
@@ -416,7 +473,8 @@ wss.on("connection", (ws) => {
           // 全プレイヤーが確定したかチェック
           const alivePlayers = Object.values(room.actors).filter(a => a.isPlayer && a.alive);
           const allReady = alivePlayers.every(p => p.ready);
-          if (allReady) {
+          const hasPendingCoop = Object.keys(room.coopRequests).length > 0;
+          if (allReady && !hasPendingCoop) {
             resolveTurn(room);
           } else {
             broadcastState(room);
@@ -432,7 +490,22 @@ wss.on("connection", (ws) => {
     if (myRoomId && rooms[myRoomId]) {
       const room = rooms[myRoomId];
       delete room.clients[myActorId];
-      if (room.actors[myActorId]) {
+      if (room.status === "waiting" && room.actors[myActorId]?.isPlayer) {
+        delete room.actors[myActorId];
+        const remainingPlayers = Object.values(room.actors).filter(actor => actor.isPlayer);
+        if (room.hostId === myActorId) room.hostId = remainingPlayers[0]?.id || null;
+        if (remainingPlayers.length === 0) {
+          Object.values(room.clients).forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ type: "ROOM_CLOSED", message: "参加者がいなくなったため、ルームを閉じました。" }));
+              client.close();
+            }
+          });
+          if (room.timer) clearInterval(room.timer);
+          delete rooms[room.id];
+          return;
+        }
+      } else if (room.actors[myActorId]) {
         room.actors[myActorId].alive = false;
       }
       broadcastState(room);
@@ -550,7 +623,9 @@ function resolveTurn(room) {
 
   // ⑨ ゲーム終了チェック
   const aliveFrogs = Object.values(room.actors).filter(a => a.alive);
-  if (room.turn >= TOTAL_TURNS || aliveFrogs.length <= 1) {
+  const alivePlayers = Object.values(room.actors).filter(a => a.isPlayer && a.alive);
+  const playerEliminated = alivePlayers.length === 0 || ((room.playerCountAtStart || 0) > 1 && alivePlayers.length <= 1);
+  if (room.turn >= TOTAL_TURNS || playerEliminated || aliveFrogs.length <= 1) {
     room.status = "finished";
     finishGame(room);
     broadcastState(room);
@@ -615,13 +690,15 @@ function decideNpcActions(room) {
 
 // 捕食成功率計算（気力ペナルティ反映）
 function calculateFeedChance(actor, prey) {
-  const staRatio = Math.max(0.1, (actor.stamina || 100) / 100);
-  const myPower = ((actor.length || 1) * 5) + ((actor.weight || 0.5) * 3) + ((actor.stamina || 100) * 0.25);
+  const start = actor.turnStartStats || actor;
+  const startStamina = start.stamina === undefined ? 100 : start.stamina;
+  const staRatio = Math.max(0, startStamina / 100);
+  const myPower = ((start.length || 1) * 5) + ((start.weight || 0.5) * 3) + (startStamina * 0.5);
   let baseChance = 60 + (myPower - prey.diff) * 2;
 
   // 気力が50%未満なら疲労ペナルティ
   if (staRatio < 0.5) {
-    baseChance -= Math.round((0.5 - staRatio) * 40);
+    baseChance -= Math.round((0.5 - staRatio) * 60);
   }
   if (actor.trait === "大食漢") baseChance += 5;
   if (actor.trait === "慎重") baseChance -= 3;
@@ -650,8 +727,10 @@ function resolveActions(room, logs) {
       a.stamina = Math.max(0, a.stamina - 12);
       partner.stamina = Math.max(0, partner.stamina - 12);
 
-      const p1Power = (a.length * 5) + (a.weight * 3) + (a.stamina * 0.25);
-      const p2Power = (partner.length * 5) + (partner.weight * 3) + (partner.stamina * 0.25);
+      const aStart = a.turnStartStats || a;
+      const partnerStart = partner.turnStartStats || partner;
+      const p1Power = (aStart.length * 5) + (aStart.weight * 3) + (aStart.stamina * 0.5);
+      const p2Power = (partnerStart.length * 5) + (partnerStart.weight * 3) + (partnerStart.stamina * 0.5);
       let coopChance = 60 + ((p1Power + p2Power) - prey.diff) * 2;
       if (a.gender === partner.gender) coopChance += 10;
       let chance = Math.max(30, Math.min(95, Math.round(coopChance)));
@@ -717,7 +796,8 @@ function resolveActions(room, logs) {
     // ⑥ カエル団子
     else if (act === "huddle") {
       const partner = room.actors[actData.targetId];
-      if (partner && partner.alive && partner.zone === a.zone) {
+      const acceptedHuddle = room.coopAccepted[a.id];
+      if (partner && acceptedHuddle && acceptedHuddle.type === "huddle" && acceptedHuddle.partnerId === partner.id && partner.alive && partner.zone === a.zone) {
         a.water = Math.min(100, a.water + 25);
         partner.water = Math.min(100, partner.water + 25);
         addAffinity(a, partner, 8);
@@ -856,7 +936,7 @@ function resolvePredators(room, logs) {
 
   for (let z = 0; z < 5; z++) {
     const chance = ZONE_PREDATOR_CHANCE[z];
-    if (Math.random() < chance) {
+    if (room.predatorThreats && room.predatorThreats[z] === true) {
       const candidates = Object.values(room.actors).filter(a => a.alive && a.zone === z);
       if (candidates.length === 0) continue;
 
@@ -975,8 +1055,8 @@ function resolveGrowth(room, logs) {
 
 // ゲーム終了処理（スコア計算）
 function finishGame(room) {
-  const ranking = Object.values(room.actors).map(a => {
-    const survivalTurn = a.alive ? TOTAL_TURNS : Math.max(1, room.turn - 1);
+  const ranking = Object.values(room.actors).filter(a => a.isPlayer).map(a => {
+    const survivalTurn = a.alive ? room.turn : Math.max(1, room.turn - 1);
     const survivalBonus = a.alive ? 1500 : 0;
     const score = (survivalTurn * 100) + (a.offspringCount * 50) + (a.level * 150) + survivalBonus;
     return {
@@ -1003,6 +1083,7 @@ function logsPush(room, txt) {
 
 // クライアント配信用ステート作成
 function getSanitizedRoomState(room) {
+  const playerNames = Object.values(room.actors).filter(a => a.isPlayer).map(a => a.name).filter(Boolean);
   return {
     id: room.id,
     hostId: room.hostId,
@@ -1015,8 +1096,9 @@ function getSanitizedRoomState(room) {
     coopRequests: room.coopRequests,
     eventsByZone: room.eventsByZone,
     pairTargets: room.pairTargets,
+    predatorThreats: room.predatorThreats || {},
     turnSummaries: room.turnSummaries,
-    logs: room.logs,
+    logs: room.logs.filter(line => playerNames.some(name => line.includes(name))),
     ranking: room.ranking || null
   };
 }
@@ -1060,12 +1142,39 @@ if (leechEvent) {
   };
 }
 
-const originalSetupTurnEvents = setupTurnEvents;
+EVENTS_MASTER.solo.push(
+  { id: "solo_shade", title: "木陰の休息", desc: "木漏れ日の差す涼しい場所を見つけた。", choices: [{ id: "rest", text: "休む（気力+15）" }, { id: "forage", text: "草むらを探す（満腹+10、水分-5）" }], resolve: (a, c) => { if (c === "rest") { a.stamina = Math.min(100, a.stamina + 15); return "木陰で休み、気力が15回復した。"; } a.food = Math.min(100, a.food + 10); a.water = Math.max(0, a.water - 5); return "草むらで食べ物を見つけた。満腹+10、水分-5。"; } },
+  { id: "solo_insects", title: "虫たちの群れ", desc: "小さな虫の群れが近くを飛んでいる。", choices: [{ id: "eat", text: "捕まえる（満腹+15、EXP+5）" }, { id: "watch", text: "観察する（気力+10）" }], resolve: (a, c) => { if (c === "eat") { a.food = Math.min(100, a.food + 15); a.exp += 5; return "虫を捕まえた。満腹+15、EXP+5。"; } a.stamina = Math.min(100, a.stamina + 10); return "虫の群れを観察してひと息ついた。気力+10。"; } },
+  { id: "solo_shallow_pool", title: "浅瀬の水たまり", desc: "浅瀬に澄んだ水たまりができている。", choices: [{ id: "drink", text: "水を飲む（水分+25）" }, { id: "nap", text: "少し休む（HP+8）" }], resolve: (a, c) => { if (c === "drink") { a.water = Math.min(100, a.water + 25); return "水たまりで喉を潤した。水分+25。"; } a.hp = Math.min(100, a.hp + 8); return "浅瀬で体を休めた。HP+8。"; } },
+  { id: "solo_thorns", title: "いばらの道", desc: "進路に鋭いいばらが広がっている。", choices: [{ id: "retreat", text: "引き返す（HP-8）" }, { id: "push", text: "進み続ける（気力-20）" }], resolve: (a, c) => { if (c === "retreat") { a.hp = Math.max(1, a.hp - 8); return "いばらで小さな傷を負った。HP-8。"; } a.stamina = Math.max(0, a.stamina - 20); return "いばらを抜けたが、気力を消耗した。気力-20。"; } }
+);
+EVENTS_MASTER.pair.push(
+  { id: "pair_shelter", title: "倒木の下", desc: "二匹で入れそうな倒木の下を見つけた。", choices: [{ id: "share", text: "場所を譲り合う（親密度+10、水分+10）" }, { id: "claim", text: "場所を独占する" }], resolvePair: (a, c1, b, c2) => { if (c1 === "share" && c2 === "share") { a.water = Math.min(100, a.water + 10); b.water = Math.min(100, b.water + 10); addAffinity(a, b, 10); return { log1: `${b.name}と倒木の下で休んだ（親密度+10、水分+10）。`, log2: `${a.name}と倒木の下で休んだ（親密度+10、水分+10）。` }; } const thief = c1 === "claim" ? a : b; const other = thief === a ? b : a; thief.stamina = Math.min(100, thief.stamina + 8); other.water = Math.max(0, other.water - 8); addAffinity(a, b, -10); return { log1: thief === a ? `場所を独占した（親密度-10）。` : `${b.name}に場所を取られた（親密度-10）。`, log2: thief === b ? `場所を独占した（親密度-10）。` : `${a.name}に場所を取られた（親密度-10）。` }; } },
+  { id: "pair_alarm", title: "水面の波紋", desc: "水面に大きな影がよぎった。相手に知らせる？", choices: [{ id: "warn", text: "相手に知らせる" }, { id: "hide", text: "自分だけ隠れる" }], resolvePair: (a, c1, b, c2) => { if (c1 === "warn" && c2 === "warn") { addAffinity(a, b, 8); a.stamina = Math.min(100, a.stamina + 8); b.stamina = Math.min(100, b.stamina + 8); return { log1: `${b.name}に知らせて一緒に隠れた（親密度+8、気力+8）。`, log2: `${a.name}に知らせて一緒に隠れた（親密度+8、気力+8）。` }; } if (c1 !== c2) { const warned = c1 === "warn" ? a : b; const hidden = warned === a ? b : a; hidden.hp = Math.max(1, hidden.hp - 8); addAffinity(a, b, -5); return { log1: warned === a ? `${b.name}に知らせた（親密度-5）。` : `${b.name}は知らせず隠れた（HP-8、親密度-5）。`, log2: warned === b ? `${a.name}に知らせた（親密度-5）。` : `${a.name}は知らせず隠れた（HP-8、親密度-5）。` }; } a.hp = Math.max(1, a.hp - 5); b.hp = Math.max(1, b.hp - 5); return { log1: "二匹とも知らせず、波しぶきを浴びた（HP-5）。", log2: "二匹とも知らせず、波しぶきを浴びた（HP-5）。" }; } },
+  { id: "pair_food_call", title: "餌の見つけ合い", desc: "二匹で食べ物のありかを探せそうだ。", choices: [{ id: "cooperate", text: "協力して探す（満腹+12、親密度+8）" }, { id: "rush", text: "先に食べる" }], resolvePair: (a, c1, b, c2) => { if (c1 === "cooperate" && c2 === "cooperate") { a.food = Math.min(100, a.food + 12); b.food = Math.min(100, b.food + 12); addAffinity(a, b, 8); return { log1: `${b.name}と餌を分け合った（満腹+12、親密度+8）。`, log2: `${a.name}と餌を分け合った（満腹+12、親密度+8）。` }; } const first = c1 === "rush" ? a : b; const second = first === a ? b : a; first.food = Math.min(100, first.food + 20); second.food = Math.max(0, second.food - 5); addAffinity(a, b, -8); return { log1: first === a ? `先に餌を食べた（満腹+20、親密度-8）。` : `${b.name}に先を越された（親密度-8）。`, log2: first === b ? `先に餌を食べた（満腹+20、親密度-8）。` : `${a.name}に先を越された（親密度-8）。` }; } }
+);
+
+const PREDATOR_ZONE_CHANCE = [0.05, 0.10, 0.18, 0.24, 0.30];
+const PREDATOR_ZONE_NAMES = ["ヤゴ", "水中の天敵", "サギ", "イタチ", "ヘビ"];
 setupTurnEvents = function(room) {
-  originalSetupTurnEvents(room);
-  Object.entries(room.eventsByZone).forEach(([zone, ev]) => {
-    ev.type = Object.values(room.actors).filter(a => a.alive && String(a.zone) === zone).some(a => room.pairTargets[a.id]) ? "pair" : "solo";
+  room.eventsByZone = {};
+  room.pairTargets = {};
+  room.predatorThreats = {};
+  Object.values(room.actors).forEach(a => {
+    a.turnStartStats = { stamina: a.stamina, length: a.length, weight: a.weight };
   });
+  for (let z = 0; z < 5; z++) {
+    const actorsHere = Object.values(room.actors).filter(a => a.alive && a.zone === z);
+    const eligible = EVENTS_MASTER.solo.map(ev => ({ ...ev, type: "solo" }));
+    if (actorsHere.length >= 2) eligible.push(...EVENTS_MASTER.pair.map(ev => ({ ...ev, type: "pair" })));
+    const ev = eligible[Math.floor(Math.random() * eligible.length)];
+    room.eventsByZone[z] = ev;
+    if (ev.type === "pair" && actorsHere.length >= 2) {
+      room.pairTargets[actorsHere[0].id] = actorsHere[1].id;
+      room.pairTargets[actorsHere[1].id] = actorsHere[0].id;
+    }
+    room.predatorThreats[z] = room.weather !== WEATHERS[4] && Math.random() < PREDATOR_ZONE_CHANCE[z];
+  }
 };
 
 const originalResolveEvents = resolveEvents;
@@ -1090,6 +1199,18 @@ resolveEvents = function(room, logs) {
     }
   }
   originalResolveEvents(room, logs);
+  for (const [actorId, partnerId] of Object.entries(room.pairTargets || {})) {
+    const actor = room.actors[actorId];
+    const partner = room.actors[partnerId];
+    if (!actor || !partner || actorId > partnerId) continue;
+    const pairEvent = room.eventsByZone[actor.zone];
+    if (actor.zone !== partner.zone || !pairEvent || pairEvent.type !== "pair") continue;
+    const affinity = (actor.affinity && actor.affinity[partner.id]) || 0;
+    for (const id of [actor.id, partner.id]) {
+      const summary = room.turnSummaries[id];
+      if (summary && summary.event) summary.event += ` （現在の親密度: ${affinity}）`;
+    }
+  }
   room.eventChoices = savedChoices;
 };
 
@@ -1099,7 +1220,8 @@ resolveActions = function(room, logs) {
   Object.values(room.actors).forEach(actor => {
     const action = room.actions[actor.id];
     const partner = action && room.actors[action.targetId];
-    if (actor.alive && action && action.act === "huddle" && partner && partner.alive && partner.zone === actor.zone) {
+    const acceptedHuddle = room.coopAccepted[actor.id];
+    if (actor.alive && action && action.act === "huddle" && acceptedHuddle && acceptedHuddle.type === "huddle" && acceptedHuddle.partnerId === partner?.id && partner && partner.alive && partner.zone === actor.zone) {
       room.huddleProtected.add(actor.id);
       room.huddleProtected.add(partner.id);
     }
@@ -1108,7 +1230,16 @@ resolveActions = function(room, logs) {
   Object.values(room.actors).forEach(actor => {
     const action = room.actions[actor.id];
     const partner = action && room.actors[action.targetId];
-    if (actor.alive && action && action.act === "huddle" && partner && partner.alive && partner.zone === actor.zone) {
+    const accepted = room.coopAccepted[actor.id];
+    if (actor.alive && action && action.act === "huddle" && partner && partner.alive && partner.zone === actor.zone && (!accepted || accepted.type !== "huddle" || accepted.partnerId !== partner.id)) {
+      room.turnSummaries[actor.id].action = `${partner.name}に断られ、カエル団子は不成立。ひとりで保湿した（水分+15）。`;
+    }
+  });
+  Object.values(room.actors).forEach(actor => {
+    const action = room.actions[actor.id];
+    const partner = action && room.actors[action.targetId];
+    const acceptedHuddle = room.coopAccepted[actor.id];
+    if (actor.alive && action && action.act === "huddle" && acceptedHuddle && acceptedHuddle.type === "huddle" && acceptedHuddle.partnerId === partner?.id && partner && partner.alive && partner.zone === actor.zone) {
       for (const protectedActor of [actor, partner]) {
         const summary = room.turnSummaries[protectedActor.id];
         if (summary && !summary.action.includes("保護効果")) summary.action += "（保護効果：このターンは天敵とカエルの攻撃を防ぐ）";
@@ -1129,6 +1260,91 @@ resolvePredators = function(room, logs) {
   });
   originalResolvePredators(room, logs);
   protectedActors.forEach(actor => { actor.alive = true; });
+};
+
+// NPC personalities drive distinct movement, feeding, social, and defense choices.
+decideNpcActions = function(room) {
+  const aliveActors = Object.values(room.actors).filter(actor => actor.alive);
+  const minStageByZone = [1, 1, 3, 4, 5];
+  const reachableZones = npc => [npc.zone - 1, npc.zone, npc.zone + 1]
+    .filter(zone => zone >= 0 && zone <= 4 && npc.stage >= minStageByZone[zone]);
+  const foodScore = zone => (PREY_MASTER[zone] || []).reduce((best, prey) => Math.max(best, prey.food + prey.exp * 0.4 - prey.diff * 0.25), 0);
+
+  aliveActors.filter(npc => !npc.isPlayer).forEach(npc => {
+    const personality = npc.personality;
+    const reachable = reachableZones(npc);
+    const actorsByZone = zone => aliveActors.filter(actor => actor.id !== npc.id && actor.zone === zone);
+    let targetZone = npc.zone;
+
+    if (npc.water < 45 && npc.zone > 1) {
+      targetZone = Math.max(...reachable.filter(zone => zone < npc.zone));
+    } else if (npc.food < 45 && personality !== PERSONALITIES[1]) {
+      targetZone = reachable.reduce((best, zone) => foodScore(zone) > foodScore(best) ? zone : best, npc.zone);
+    } else if (personality === PERSONALITIES[0]) {
+      targetZone = reachable.reduce((best, zone) => actorsByZone(zone).length > actorsByZone(best).length ? zone : best, npc.zone);
+    } else if (personality === PERSONALITIES[1]) {
+      targetZone = reachable.reduce((best, zone) => foodScore(zone) > foodScore(best) ? zone : best, npc.zone);
+    } else if (personality === PERSONALITIES[2]) {
+      targetZone = reachable.reduce((best, zone) => actorsByZone(zone).length > actorsByZone(best).length ? zone : best, npc.zone);
+    } else if (personality === PERSONALITIES[3]) {
+      targetZone = reachable.reduce((best, zone) => {
+        const bestRisk = (room.predatorThreats && room.predatorThreats[best] ? 1 : 0) + PREDATOR_ZONE_CHANCE[best];
+        const zoneRisk = (room.predatorThreats && room.predatorThreats[zone] ? 1 : 0) + PREDATOR_ZONE_CHANCE[zone];
+        return zoneRisk < bestRisk ? zone : best;
+      }, npc.zone);
+    }
+
+    const preyList = PREY_MASTER[targetZone] || PREY_MASTER[0];
+    const prey = preyList.slice().sort((left, right) => {
+      const leftChance = calculateFeedChance(npc, left);
+      const rightChance = calculateFeedChance(npc, right);
+      const score = item => {
+        const chance = calculateFeedChance(npc, item);
+        if (personality === PERSONALITIES[1]) return item.food * 0.7 + item.exp * 0.4 + chance * 0.15;
+        if (personality === PERSONALITIES[3]) return chance * 1.2 + item.food * 0.15;
+        if (personality === PERSONALITIES[2]) return item.exp * 0.6 + chance * 0.3;
+        return chance * 0.8 + item.food * 0.3;
+      };
+      return score(right) - score(left) || rightChance - leftChance;
+    })[0];
+
+    const nearby = actorsByZone(targetZone);
+    const mateCandidates = nearby.filter(actor => actor.stage >= 6 && actor.gender !== npc.gender);
+    const target = nearby.slice().sort((a, b) => {
+      const affinityA = (npc.affinity && npc.affinity[a.id]) || 0;
+      const affinityB = (npc.affinity && npc.affinity[b.id]) || 0;
+      return a.hp - b.hp || affinityA - affinityB;
+    })[0];
+
+    let act = "feed";
+    let targetId = null;
+    if (npc.hp <= 35 || npc.stamina <= 18) {
+      act = "rest";
+    } else if (npc.water <= 35) {
+      act = "water";
+    } else if (npc.stage >= 6 && mateCandidates.length && Math.random() < (personality === PERSONALITIES[0] ? 0.28 : personality === PERSONALITIES[3] ? 0.08 : 0.18)) {
+      act = "mate";
+      targetId = mateCandidates[0].id;
+    } else if (personality === PERSONALITIES[0] && target && Math.random() < 0.65) {
+      act = "call";
+      targetId = target.id;
+    } else if (personality === PERSONALITIES[2] && target && Math.random() < 0.60) {
+      act = "attack";
+      targetId = target.id;
+    } else if (personality === PERSONALITIES[3] && room.predatorThreats && room.predatorThreats[targetZone]) {
+      act = "watch";
+    }
+
+    room.actions[npc.id] = { moveZone: targetZone, act, targetPreyId: prey.id, targetId };
+
+    const event = room.eventsByZone[targetZone];
+    if (event && event.choices && event.choices.length) {
+      const prefersCooperation = personality === PERSONALITIES[0] || personality === PERSONALITIES[3];
+      room.eventChoices[npc.id] = prefersCooperation ? event.choices[0].id : event.choices[event.choices.length - 1].id;
+    } else {
+      room.eventChoices[npc.id] = "none";
+    }
+  });
 };
 
 server.listen(PORT, () => {
