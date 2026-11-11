@@ -495,9 +495,9 @@
 
         <div id="feed-target-box" style="margin-top:4px; background:#18261a; padding:5px; border-radius:4px; border:1px dashed var(--accent);">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <label style="font-size:10px; color:var(--accent); font-weight:bold;">🦗 獲物選択 (成功率):</label>
+            <label id="feed-chance-label" style="font-size:10px; color:var(--accent); font-weight:bold;">🦗 獲物選択 (成功率):</label>
             <label id="coop-feed-label" style="font-size:9px; color:var(--accent-gold); display:none;">
-              <input type="checkbox" id="coop-feed-chk" onchange="onCoopFeedToggle()" style="width:auto; margin:0 2px 0 0; vertical-align:middle;">仲間に協力申請を送る
+              <input type="checkbox" id="coop-feed-chk" onchange="onCoopFeedToggle(); updateDisplayedFeedChances()" style="width:auto; margin:0 2px 0 0; vertical-align:middle;">仲間に協力申請を送る
             </label>
           </div>
           <select id="feed-target-sel" onchange="checkLargePrey()"></select>
@@ -508,7 +508,7 @@
             <label style="font-size:10px; color:var(--accent-gold); font-weight:bold;" id="actor-target-label">🤝 相手を指名:</label>
             <span id="coop-chance-badge" style="font-size:9px; font-weight:bold; color:#77ff77;"></span>
           </div>
-          <select id="actor-target-sel" onchange="updateCoopChanceDisplay()"></select>
+          <select id="actor-target-sel" onchange="updateCoopChanceDisplay(); updateDisplayedFeedChances()"></select>
         </div>
 
         <button class="primary" id="submit-btn" style="margin-top:6px;" onclick="sendAction()">この行動で確定する ✔</button>
@@ -580,7 +580,7 @@ const TRAITS_DATA = {
   },
   "身軽": {
     name: "【身軽 (俊敏型)】", badge: "特徴: 身軽",
-    plus: "素早く小回りが利き、天敵からの逃走・回避成功率が +15% される。",
+    plus: "素早く小回りが利き、天敵からの回避に25%の確率で成功する。",
     minus: "体がスリムで体重が増えにくく、捕食力やシェルター押し出し争いでやや不利。",
     tip: "天敵に狙われても生き残りやすい。無理に大型獲物を追わず手堅く生きよ！"
   },
@@ -739,7 +739,7 @@ function setRainAmbience(enabled) {
   filter.connect(rainNoiseGain);
   rainNoiseGain.connect(gameAudioMaster);
   rainNoiseSource.start();
-  rainNoiseGain.gain.setTargetAtTime(0.12, gameAudioContext.currentTime, 0.35);
+  rainNoiseGain.gain.setTargetAtTime(0.055, gameAudioContext.currentTime, 0.35);
 }
 
 function playWeatherNote(cfg) {
@@ -1059,7 +1059,7 @@ function showCoopConfirmModal(req) {
 function respondCoopRequest(accept) {
   document.getElementById("coop-confirm-modal").style.display = "none";
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "RESPOND_COOP", accept: accept }));
+    ws.send(JSON.stringify({ type: "RESPOND_COOP", accept: accept, turn: lastState && lastState.turn }));
   }
 }
 
@@ -1334,15 +1334,13 @@ function renderGameUI(state) {
       pListEl.appendChild(badge);
     }
 
-    if (state.logs && state.logs.length > 0) {
-      const box = document.getElementById("log-box");
-      box.innerHTML = "";
-      state.logs.forEach(l => {
-        const p = document.createElement("div");
-        p.innerText = l;
-        box.appendChild(p);
-      });
-    }
+    const logBox = document.getElementById("log-box");
+    logBox.innerHTML = "";
+    (state.logs || []).forEach(line => {
+      const p = document.createElement("div");
+      p.innerText = line;
+      logBox.appendChild(p);
+    });
   } catch (err) {
     console.error("renderGameUI error:", err);
   }
@@ -1516,6 +1514,7 @@ function updatePreyOptions() {
 
     const opt = document.createElement("option");
     opt.value = p.id;
+    opt.dataset.preyId = p.id;
     opt.innerText = `${p.name} (成功率: ${chance}%, 満腹+${p.food}, EXP+${p.exp})`;
     sel.appendChild(opt);
   });
@@ -1526,8 +1525,29 @@ function updatePreyOptions() {
     sel.selectedIndex = 0;
   }
   checkLargePrey();
+  updateDisplayedFeedChances();
 }
 
+function updateDisplayedFeedChances() {
+  if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
+  const me = lastState.actors[myActorId];
+  const zone = String(parseInt(document.getElementById("move-sel").value, 10) || me.zone);
+  const coopSelected = document.getElementById("act-sel").value === "feed" && document.getElementById("coop-feed-chk").checked;
+  const partnerId = document.getElementById("actor-target-sel").value;
+  const label = document.getElementById("feed-chance-label");
+  if (label) label.innerText = coopSelected ? "🦗 獲物選択 (協力成立時の成功率):" : "🦗 獲物選択 (成功率):";
+  document.querySelectorAll("#feed-target-sel option[data-prey-id]").forEach(option => {
+    const soloChance = lastState.feedChances?.[me.id]?.[zone]?.[option.dataset.preyId];
+    const coopChance = lastState.coopFeedChances?.[me.id]?.[partnerId]?.[zone]?.[option.dataset.preyId];
+    const chance = coopSelected ? coopChance : soloChance;
+    const prey = (PREY_MASTER[parseInt(zone, 10)] || []).find(item => item.id === option.dataset.preyId);
+    if (prey && Number.isFinite(chance)) {
+      option.innerText = `${prey.name} (成功率: ${chance}%, 満腹+${prey.food}, EXP+${prey.exp})`;
+    } else if (prey && coopSelected) {
+      option.innerText = `${prey.name} (協力相手を選択, 満腹+${prey.food}, EXP+${prey.exp})`;
+    }
+  });
+}
 function updateActorTargetOptions() {
   if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
   const me = lastState.actors[myActorId];
@@ -1561,49 +1581,36 @@ function updateActorTargetOptions() {
     if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
   }
   updateCoopChanceDisplay();
+  updateDisplayedFeedChances();
 }
 
 function updateCoopChanceDisplay() {
   const badge = document.getElementById("coop-chance-badge");
   badge.innerText = "";
   if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
-
   const targetId = document.getElementById("actor-target-sel").value;
   if (!targetId) return;
-
   const me = lastState.actors[myActorId];
   const target = lastState.actors[targetId];
   if (!target) return;
-
   const act = document.getElementById("act-sel").value;
-  const isCoopFeed = (act === "feed" && document.getElementById("coop-feed-chk").checked);
-
+  const isCoopFeed = act === "feed" && document.getElementById("coop-feed-chk").checked;
+  const coopType = isCoopFeed ? "feed" : (act === "huddle" || act === "mate" ? act : null);
+  if (!coopType) return;
   if (target.isPlayer) {
-    badge.innerText = "見込み: 相手プレイヤーの判断次第";
+    badge.innerText = "協力見込み: 相手プレイヤーの判断次第";
     badge.style.color = "#aaddff";
     return;
   }
-
-  const aff = (me.affinity && me.affinity[target.id]) ? me.affinity[target.id] : 0;
-  let baseChance = 35;
-  if (target.personality === "温厚") baseChance = 50;
-  if (target.personality === "利己") baseChance = 20;
-  if (target.personality === "獰猛") baseChance = 15;
-
-  baseChance = target.personality === "温厚" ? 50 : (target.personality === "利己" ? 20 : 35);
-  let chance = baseChance + (aff * 0.5);
-  if (me.hp >= 70 && me.stamina >= 50) chance += 10;
-  if (me.hp <= 30) chance -= 20;
-
-  if (act === "huddle" && target.water <= 50) chance += 20;
-  if (isCoopFeed && target.food <= 50) chance += 20;
-
-  chance = Math.max(5, Math.min(95, Math.round(chance)));
-
+  const chance = lastState.coopAcceptanceChances?.[me.id]?.[target.id]?.[coopType];
+  if (!Number.isFinite(chance)) {
+    badge.innerText = "協力見込み: 算出できません";
+    badge.style.color = "#aaddff";
+    return;
+  }
   badge.innerText = `協力見込み: ${chance}%`;
   badge.style.color = chance >= 70 ? "#77ff77" : (chance >= 40 ? "#ffff77" : "#ff7777");
 }
-
 // エリアイベントの描画
 function renderAreaEventCard(state, me) {
   if (!me) return;
@@ -1685,6 +1692,7 @@ function sendAction() {
   if (isCoopFeed && ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
       type: "SEND_COOP_REQUEST",
+      turn: lastState && lastState.turn,
       targetId: targetId,
       coopType: "feed",
       preyId: targetPreyId
@@ -1692,6 +1700,7 @@ function sendAction() {
   } else if ((act === "huddle" || act === "mate") && targetId && ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
       type: "SEND_COOP_REQUEST",
+      turn: lastState && lastState.turn,
       targetId: targetId,
       coopType: act
     }));
@@ -1699,6 +1708,8 @@ function sendAction() {
 
   ws.send(JSON.stringify({
     type: "SUBMIT_ACTION",
+    turn: lastState && lastState.turn,
+    coopRequested: Boolean(isCoopFeed),
     action: { moveZone, act, targetPreyId, targetId },
     eventChoice: evChoice
   }));
@@ -1710,7 +1721,7 @@ function openLiveRankingModal() {
   box.innerHTML = "";
   const players = Object.values(lastState.actors || {}).map(actor => {
     const survivalTurn = actor.alive ? lastState.turn : Math.max(1, lastState.turn - 1);
-    const score = (survivalTurn * 100) + ((actor.offspringCount || 0) * 50) + ((actor.level || 1) * 200) + (actor.alive ? 1500 : 0);
+    const score = (survivalTurn * 100) + ((actor.offspringCount || 0) * 50) + ((actor.level || 1) * 200) + (actor.alive ? 1500 : 0) + (actor.killBonusScore || 0);
     return { actor, score };
   }).sort((a, b) => b.score - a.score);
 
