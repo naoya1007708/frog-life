@@ -395,7 +395,7 @@
 
       <div class="view-container">
         <div class="screen-frame">
-          <canvas id="retroCanvas" width="130" height="150"></canvas>
+          <canvas id="retroCanvas" width="260" height="300"></canvas>
         </div>
 
         <div class="minimap-panel" id="minimap-box">
@@ -671,6 +671,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const canvas = document.getElementById("retroCanvas");
   const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  ctx.scale(2, 2);
   function loop() {
     tick++;
     updateAnim();
@@ -1671,69 +1673,106 @@ function drawMyFrog(ctx, x, y, st, z) {
 
   if (st === 1) {
     const tailOff = Math.round(Math.sin(tick * 0.25) * 3);
-    ctx.fillStyle = pal.dark; ctx.fillRect(-5, -4, 10, 8);
-    ctx.fillStyle = "#77ee77"; ctx.fillRect(-4, -3, 8, 6);
-    ctx.fillStyle = "#000"; ctx.fillRect(2, -3, 2, 2);
-    ctx.fillStyle = pal.dark;
-    ctx.fillRect(-9, -2 + tailOff, 5, 4);
-    ctx.fillRect(-14, tailOff * 1.2, 5, 2);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-8, -6, 16, 12);
+    ctx.fillStyle = pal.body; ctx.fillRect(-6, -5, 12, 10);
+    ctx.fillStyle = pal.belly; ctx.fillRect(-4, 1, 7, 3);
+    ctx.fillStyle = pal.eye; ctx.fillRect(2, -5, 4, 4);
+    ctx.fillStyle = "#17251b"; ctx.fillRect(3, -4, 2, 3);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-13, -2 + tailOff, 7, 4); ctx.fillRect(-20, tailOff, 7, 2);
+    ctx.fillStyle = pal.body; ctx.fillRect(-12, -1 + tailOff, 5, 2);
   } else if (st === 2) {
     const kick = Math.sin(tick * 0.25) > 0 ? 1 : -1;
-    ctx.fillStyle = pal.dark; ctx.fillRect(-6, -5, 11, 9);
-    ctx.fillStyle = "#77ee77"; ctx.fillRect(-5, -4, 9, 7);
-    ctx.fillStyle = "#000"; ctx.fillRect(2, -4, 2, 2);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-10, -8, 20, 16);
+    ctx.fillStyle = pal.body; ctx.fillRect(-8, -7, 16, 13);
+    ctx.fillStyle = pal.belly; ctx.fillRect(-4, 1, 9, 4);
+    ctx.fillStyle = pal.eye; ctx.fillRect(3, -7, 5, 5);
+    ctx.fillStyle = "#17251b"; ctx.fillRect(4, -6, 3, 3);
     const tailWiggle = Math.round(Math.sin(tick * 0.25) * 2);
-    ctx.fillStyle = pal.dark;
-    ctx.fillRect(-11, -2 + tailWiggle, 5, 4);
-    if (kick > 0) { ctx.fillRect(-4, 4, 3, 5); ctx.fillRect(-7, 8, 4, 3); }
-    else { ctx.fillRect(-5, 3, 4, 4); }
+    ctx.fillStyle = pal.dark; ctx.fillRect(-15, -3 + tailWiggle, 7, 5); ctx.fillRect(-21, tailWiggle, 7, 3);
+    ctx.fillStyle = pal.body; ctx.fillRect(-14, -2 + tailWiggle, 5, 3);
+    if (kick > 0) { ctx.fillStyle = pal.dark; ctx.fillRect(-5, 7, 6, 8); ctx.fillRect(-10, 13, 8, 4); ctx.fillRect(6, 6, 6, 8); ctx.fillRect(8, 12, 8, 4); ctx.fillStyle = pal.body; ctx.fillRect(-8, 14, 5, 2); ctx.fillRect(11, 13, 4, 2); }
   } else if (st === 3) {
-    ctx.fillStyle = pal.dark; ctx.fillRect(-7, -6, 13, 11);
-    ctx.fillStyle = "#77ee77"; ctx.fillRect(-6, -5, 11, 9);
-    ctx.fillStyle = "#000"; ctx.fillRect(2, -4, 2, 2);
-    ctx.fillStyle = pal.dark; ctx.fillRect(-12, -2, 6, 3);
-    ctx.fillRect(-3, 5, 3, 4); ctx.fillRect(-6, 5, 3, 4);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-14, 5, 9, 12); ctx.fillRect(6, 5, 9, 12);
+    ctx.fillRect(-18, 13, 12, 5); ctx.fillRect(7, 13, 12, 5);
+    ctx.fillStyle = pal.body; ctx.fillRect(-12, 6, 6, 9); ctx.fillRect(8, 6, 6, 9);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-11, -10, 22, 20); ctx.fillRect(-14, -6, 28, 12);
+    ctx.fillStyle = pal.body; ctx.fillRect(-9, -8, 18, 15); ctx.fillRect(-12, -4, 24, 8);
+    ctx.fillStyle = pal.belly; ctx.fillRect(-5, 1, 10, 6);
+    ctx.fillStyle = pal.eye; ctx.fillRect(3, -9, 5, 5); ctx.fillStyle = "#17251b"; ctx.fillRect(5, -8, 2, 3);
+    ctx.fillStyle = pal.body; ctx.fillRect(-16, -1, 5, 4);
   } else if (st === 4) {
-    ctx.fillStyle = pal.dark; ctx.fillRect(-8, -6, 15, 12);
-    ctx.fillStyle = "#77ee77"; ctx.fillRect(-7, -5, 13, 10);
-    ctx.fillStyle = pal.dark; ctx.fillRect(-12, -1, 4, 3);
-    ctx.fillStyle = pal.eye; ctx.fillRect(2, -7, 4, 3);
-    ctx.fillStyle = "#000"; ctx.fillRect(3, -6, 2, 1);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-16, 5, 10, 13); ctx.fillRect(7, 5, 10, 13);
+    ctx.fillRect(-20, 14, 13, 5); ctx.fillRect(8, 14, 13, 5);
+    ctx.fillStyle = pal.body; ctx.fillRect(-14, 6, 7, 10); ctx.fillRect(9, 6, 7, 10);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-15, -10, 30, 25); ctx.fillRect(-19, -5, 38, 15);
+    ctx.fillStyle = pal.body; ctx.fillRect(-12, -8, 24, 20); ctx.fillRect(-16, -3, 32, 11);
+    ctx.fillStyle = pal.belly; ctx.fillRect(-7, 2, 14, 9);
+    ctx.fillStyle = pal.eye; ctx.fillRect(5, -10, 6, 5); ctx.fillStyle = "#17251b"; ctx.fillRect(7, -9, 3, 3);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-20, -1, 6, 4);
   } else if (st === 5) {
-    ctx.fillStyle = pal.dark; ctx.fillRect(-8, -6, 15, 12);
-    ctx.fillStyle = "#77ee77"; ctx.fillRect(-7, -5, 13, 10);
-    ctx.fillStyle = pal.belly; ctx.fillRect(-3, 0, 6, 5);
-    ctx.fillStyle = pal.eye; ctx.fillRect(2, -7, 4, 3);
-    ctx.fillStyle = "#000"; ctx.fillRect(3, -6, 2, 1);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-19, 7, 12, 15); ctx.fillRect(8, 7, 12, 15);
+    ctx.fillRect(-25, 17, 16, 6); ctx.fillRect(9, 17, 16, 6);
+    ctx.fillStyle = pal.body; ctx.fillRect(-17, 8, 8, 12); ctx.fillRect(10, 8, 8, 12);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-19, -13, 38, 31); ctx.fillRect(-23, -6, 46, 18);
+    ctx.fillStyle = pal.body; ctx.fillRect(-16, -11, 32, 25); ctx.fillRect(-20, -4, 40, 13);
+    ctx.fillStyle = pal.belly; ctx.fillRect(-9, 3, 18, 11);
+    ctx.fillStyle = pal.eye; ctx.fillRect(-14, -19, 12, 11); ctx.fillRect(3, -19, 12, 11);
+    ctx.fillStyle = pal.belly; ctx.fillRect(-12, -18, 8, 7); ctx.fillRect(5, -18, 8, 7);
+    ctx.fillStyle = "#17251b"; ctx.fillRect(-9, -17, 4, 6); ctx.fillRect(7, -17, 4, 6);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-21, -2, 6, 4);
   } else {
     const puff = (Math.sin(tick * 0.12) > 0.4) ? 3 : 0;
     const isBlink = (blinkTimer > 140);
 
-    ctx.fillStyle = pal.dark;
-    ctx.fillRect(-12, 3, 7, 7); ctx.fillRect(6, 3, 7, 7);
-    ctx.fillRect(-9, -6, 19, 14);
-    ctx.fillStyle = "#77ee77"; ctx.fillRect(-8, -5, 17, 12);
-    ctx.fillStyle = pal.belly; ctx.fillRect(-4, 0, 8, 7);
+    const highlight = z === 0 ? "#b68b61" : z === 3 ? "#8bcf78" : "#91e36b";
+    ctx.fillStyle = "rgba(7, 22, 20, 0.55)"; ctx.fillRect(-28, 27, 56, 5); ctx.fillRect(-20, 24, 40, 3);
 
-    if (puff > 0) {
-      ctx.fillStyle = pal.belly; ctx.fillRect(-5, -2, 11, 3 + puff);
-    }
+    // 脚と指先。二倍解像度のCanvasで輪郭を保ったまま細部を描く。
+    ctx.fillStyle = pal.dark; ctx.fillRect(-25, 9, 13, 17); ctx.fillRect(12, 9, 13, 17);
+    ctx.fillRect(-31, 22, 18, 6); ctx.fillRect(13, 22, 18, 6);
+    ctx.fillStyle = pal.body; ctx.fillRect(-22, 11, 8, 12); ctx.fillRect(14, 11, 8, 12);
+    ctx.fillStyle = highlight; ctx.fillRect(-29, 24, 7, 2); ctx.fillRect(-19, 26, 6, 2); ctx.fillRect(22, 24, 7, 2); ctx.fillRect(13, 26, 6, 2);
 
-    ctx.fillStyle = "#112211"; ctx.fillRect(-7, -3, 15, 2);
+    // 体のシルエットと陰影。
+    ctx.fillStyle = pal.dark; ctx.fillRect(-23, -6, 46, 34); ctx.fillRect(-19, -12, 38, 44); ctx.fillRect(-27, 1, 54, 22);
+    ctx.fillStyle = pal.body; ctx.fillRect(-20, -7, 40, 31); ctx.fillRect(-16, -10, 32, 38); ctx.fillRect(-24, 2, 48, 16);
+    ctx.fillStyle = highlight; ctx.fillRect(-20, -5, 4, 18); ctx.fillRect(-16, -9, 8, 3); ctx.fillRect(-24, 3, 3, 9);
+    ctx.fillStyle = pal.dark; ctx.fillRect(17, -4, 4, 17); ctx.fillRect(12, 20, 8, 4);
 
+    // 腹部の明るい面と段階的な影。
+    ctx.fillStyle = pal.belly; ctx.fillRect(-13, 5, 26, 19); ctx.fillRect(-9, 2, 18, 4);
+    ctx.fillStyle = z === 0 ? "#9f805f" : "#b8d98a"; ctx.fillRect(-10, 20, 20, 4); ctx.fillRect(-5, 16, 3, 2); ctx.fillRect(5, 18, 3, 2);
+    ctx.fillStyle = "rgba(255,255,220,0.35)"; ctx.fillRect(-8, 8, 3, 8);
+
+    // 頭と大きな目。白目、虹彩、瞳、光点を別のピクセル層で描く。
+    ctx.fillStyle = pal.dark; ctx.fillRect(-25, -24, 50, 25); ctx.fillRect(-29, -17, 58, 17);
+    ctx.fillStyle = pal.body; ctx.fillRect(-22, -22, 44, 20); ctx.fillRect(-26, -15, 52, 12);
+    ctx.fillStyle = highlight; ctx.fillRect(-20, -21, 9, 3); ctx.fillRect(14, -19, 6, 4);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-20, -31, 17, 17); ctx.fillRect(3, -31, 17, 17);
+    ctx.fillStyle = pal.body; ctx.fillRect(-18, -29, 13, 13); ctx.fillRect(5, -29, 13, 13);
     if (!isBlink) {
-      ctx.fillStyle = pal.eye;
-      ctx.fillRect(-4, -9, 4, 4); ctx.fillRect(3, -9, 4, 4);
-      ctx.fillStyle = "#000";
-      ctx.fillRect(-3, -8, 3, 1); ctx.fillRect(4, -8, 3, 1);
+      ctx.fillStyle = "#f3f0d8"; ctx.fillRect(-16, -27, 10, 10); ctx.fillRect(6, -27, 10, 10);
+      ctx.fillStyle = pal.eye; ctx.fillRect(-12, -26, 6, 9); ctx.fillRect(7, -26, 6, 9);
+      ctx.fillStyle = "#102019"; ctx.fillRect(-10, -25, 4, 7); ctx.fillRect(8, -25, 4, 7);
+      ctx.fillStyle = "#fffde5"; ctx.fillRect(-12, -26, 2, 2); ctx.fillRect(7, -26, 2, 2);
     } else {
-      ctx.fillStyle = pal.dark;
-      ctx.fillRect(-4, -7, 4, 1); ctx.fillRect(3, -7, 4, 1);
+      ctx.fillStyle = pal.dark; ctx.fillRect(-15, -23, 12, 2); ctx.fillRect(5, -23, 12, 2);
     }
+
+    // 鼻先、口元、頬の斑点。
+    ctx.fillStyle = pal.body; ctx.fillRect(-17, -12, 34, 12); ctx.fillRect(-12, -8, 24, 11);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-11, -8, 3, 2); ctx.fillRect(8, -8, 3, 2);
+    ctx.fillRect(-8, 1, 16, 2); ctx.fillRect(-7, 3, 2, 2); ctx.fillRect(5, 3, 2, 2);
+    ctx.fillStyle = highlight; ctx.fillRect(-22, -5, 4, 3); ctx.fillRect(18, -5, 4, 3);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-17, -2, 2, 2); ctx.fillRect(15, -2, 2, 2);
+
+    if (puff > 0) { ctx.fillStyle = pal.belly; ctx.fillRect(-8, 4, 16, 3 + puff); }
   }
 
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(-6, -st * 2 - 8, 12, 2);
+  if (st >= 4) {
+    ctx.fillStyle = "rgba(210,245,175,0.45)";
+    ctx.fillRect(-34, -13, 2, 2); ctx.fillRect(31, -22, 2, 2);
+  }
 
   ctx.restore();
 }
