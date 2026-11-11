@@ -49,7 +49,6 @@
     display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 4px;
   }
 
-  /* 画面構成 */
   .view-container { display: flex; gap: 6px; width: 100%; height: 230px; }
   .screen-frame {
     flex: 1.8; background: #000; border-radius: 6px; overflow: hidden;
@@ -57,7 +56,6 @@
   }
   canvas#retroCanvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
 
-  /* ミニマップ */
   .minimap-panel {
     flex: 1.2; background: #0d170e; border: 2px solid var(--border-color);
     border-radius: 6px; padding: 4px; display: flex; flex-direction: column; justify-content: space-between;
@@ -75,7 +73,6 @@
   .minimap-zone-title { font-weight: bold; font-size: 9px; color: #88bb88; display: flex; justify-content: space-between; }
   .minimap-actors-count { font-size: 8px; color: #ffea77; }
 
-  /* 親密度ピンク枠 */
   .actor-dot { font-size: 9px; padding: 1px 4px; border-radius: 2px; cursor: pointer; }
   .high-affinity {
     border: 2px solid var(--accent-pink) !important;
@@ -84,7 +81,6 @@
     box-shadow: 0 0 5px rgba(255, 102, 204, 0.5);
   }
 
-  /* ステータスバー・EXPゲージ */
   .status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 4px; }
   .bar-box { background: #0a110c; border: 1px solid #223624; border-radius: 3px; padding: 3px; font-size: 10px; text-align: center; }
 
@@ -105,7 +101,6 @@
 
   #log-box { height: 75px; overflow-y: scroll; font-size: 10px; line-height: 1.4; background: #0a110c; padding: 6px; border-radius: 4px; margin-top: 4px; }
 
-  /* モーダル */
   .modal-overlay {
     display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(3, 7, 4, 0.95); z-index: 9999; justify-content: center; align-items: center;
@@ -132,7 +127,6 @@
   .plus-text { color: #88ff88; font-weight: bold; }
   .minus-text { color: #ff8888; font-weight: bold; }
 
-  /* ルールブックタブ */
   .rule-tab-bar { display: flex; gap: 4px; margin-bottom: 8px; }
   .rule-tab-btn {
     flex: 1; padding: 6px 2px; font-size: 10px; background: #142115; border: 1px solid #2c422f;
@@ -147,7 +141,6 @@
   .rank-row { display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #2e4531; font-size: 11px; }
   .history-box { background: #0d170f; padding: 8px; font-size: 11px; line-height: 1.5; border-radius: 4px; max-height: 150px; overflow-y: scroll; margin-top: 6px; text-align: left; }
 
-  /* スマホ横画面対応 */
   @media (orientation: landscape) and (max-height: 520px) {
     body { padding: 4px; }
     .app-frame { max-width: 98vw; }
@@ -168,7 +161,7 @@
 
 <div class="app-frame">
 
-  <!-- ================= 画面1：ロビー画面 ================= -->
+  <!-- 画面1：ロビー画面 -->
   <div id="lobby-screen" class="panel">
     <div style="text-align:center;">
       <h2 style="color:var(--accent); margin:0 0 2px 0;">🐸 FROG LIFE</h2>
@@ -212,8 +205,7 @@
     </div>
   </div>
 
-
-  <!-- ================= 画面1.5：誕生・性別・特徴モーダル ================= -->
+  <!-- 画面1.5：誕生・性別・特徴モーダル -->
   <div id="trait-modal" class="modal-overlay">
     <div class="modal-card">
       <div style="font-size:11px; color:#aaa;">🥚 命の誕生</div>
@@ -242,8 +234,7 @@
     </div>
   </div>
 
-
-  <!-- ================= ★ 協力申請の確認モーダル（新設） ================= -->
+  <!-- 協力申請の確認モーダル -->
   <div id="coop-confirm-modal" class="modal-overlay">
     <div class="modal-card">
       <div style="font-size:14px; font-weight:bold; color:var(--accent-gold);">🤝 協力の呼びかけが届きました！</div>
@@ -260,8 +251,7 @@
     </div>
   </div>
 
-
-  <!-- ================= ターン解決サマリーモーダル ================= -->
+  <!-- ターン解決サマリーモーダル -->
   <div id="turn-summary-modal" class="modal-overlay">
     <div class="modal-card">
       <div style="font-size:11px; color:var(--accent-gold); font-weight:bold;" id="sum-turn-title">【 TURN 1 生存結果 】</div>
@@ -290,8 +280,7 @@
     </div>
   </div>
 
-
-  <!-- ================= ルールブックモーダル ================= -->
+  <!-- ルールブックモーダル -->
   <div id="rulebook-modal" class="modal-overlay">
     <div class="modal-card" style="max-width:420px;">
       <div style="font-size:14px; font-weight:bold; color:var(--accent-gold); margin-bottom:8px;">
@@ -301,7 +290,7 @@
       <div class="rule-tab-bar">
         <button class="rule-tab-btn active" onclick="switchRuleTab(1)" id="rtab-1">①勝利</button>
         <button class="rule-tab-btn" onclick="switchRuleTab(2)" id="rtab-2">②ゾーン・天候</button>
-        <button class="rule-tab-btn" onclick="switchRuleTab(3)" id="rtab-3">③心理戦</button>
+        <button class="rule-tab-btn" onclick="switchRuleTab(3)" id="rtab-3">③心理・交配</button>
         <button class="rule-tab-btn" onclick="switchRuleTab(4)" id="rtab-4">④成長・残機</button>
       </div>
 
@@ -311,8 +300,7 @@
     </div>
   </div>
 
-
-  <!-- ================= エリア内カエル一覧モーダル ================= -->
+  <!-- エリア内カエル一覧モーダル -->
   <div id="zone-actors-modal" class="modal-overlay">
     <div class="modal-card">
       <div style="font-size:13px; font-weight:bold; color:var(--accent);" id="zam-zone-title">⑤ 草むら・陸地にいるカエル</div>
@@ -324,8 +312,7 @@
     </div>
   </div>
 
-
-  <!-- ================= ★ 相手のカエルの詳細ステータスモーダル（新設） ================= -->
+  <!-- 相手の詳細ステータスモーダル -->
   <div id="target-detail-modal" class="modal-overlay">
     <div class="modal-card">
       <div style="font-size:14px; font-weight:bold; color:var(--accent-gold);" id="tdet-name">🐸 相手の生体情報</div>
@@ -339,15 +326,14 @@
         <div><strong>レベル:</strong> <span id="tdet-level" style="color:var(--accent); font-weight:bold;">Lv.1</span> (<span id="tdet-stage">オタマ</span>)</div>
         <div><strong>体格:</strong> 体長 <span id="tdet-len">1.0</span>cm / 体重 <span id="tdet-wt">0.5</span>g</div>
         <div><strong>あなたとの親密度:</strong> <span id="tdet-aff" style="font-weight:bold; color:var(--accent-pink);">0 / 100</span> (<span id="tdet-aff-status">普通</span>)</div>
-        <div style="font-size:10px; color:#aaa; margin-top:4px;">※親密度が高いほど、ペアイベントで裏切られにくく、交配時の卵数が増加します！</div>
+        <div style="font-size:10px; color:#aaa; margin-top:4px;">※親密な相手ほど、交配時に産まれる卵の数（スコア）が大幅に増加します！</div>
       </div>
 
       <button class="secondary" onclick="closeTargetDetailModal()">閉じる</button>
     </div>
   </div>
 
-
-  <!-- ================= 自身の詳細ステータス確認モーダル ================= -->
+  <!-- 自身の詳細ステータス確認モーダル -->
   <div id="status-detail-modal" class="modal-overlay">
     <div class="modal-card">
       <div style="font-size:14px; font-weight:bold; color:var(--accent);">📊 自身の詳細ステータス・生体記録</div>
@@ -374,8 +360,7 @@
     </div>
   </div>
 
-
-  <!-- ================= 画面2：ゲーム本編 ================= -->
+  <!-- 画面2：ゲーム本編 -->
   <div id="game-screen">
     
     <div id="col-visual" style="display:flex; flex-direction:column; gap:6px;">
@@ -428,7 +413,6 @@
     </div>
 
     <div id="col-controls" style="display:flex; flex-direction:column; gap:6px;">
-      <!-- ステータス（レベル・体長・体重・EXPゲージ） -->
       <div class="panel">
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
           <div>
@@ -441,13 +425,11 @@
           </span>
         </div>
 
-        <!-- 体長・体重・残機 -->
         <div style="font-size:9.5px; margin-top:2px; color:#bbb; display:flex; justify-content:space-between;">
           <span>体長: <strong id="txt-len" style="color:#fff;">1.0</strong>cm / 体重: <strong id="txt-wt" style="color:#fff;">0.5</strong>g</span>
           <span>残機: <span id="txt-eggs">🥚🥚</span></span>
         </div>
 
-        <!-- EXPゲージ -->
         <div style="margin-top:3px;">
           <div style="display:flex; justify-content:space-between; font-size:8.5px; color:#a0c4a4;">
             <span>次のレベルまで:</span>
@@ -499,11 +481,9 @@
           </div>
         </div>
 
-        <!-- 獲物選択 -->
         <div id="feed-target-box" style="margin-top:4px; background:#18261a; padding:5px; border-radius:4px; border:1px dashed var(--accent);">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <label style="font-size:10px; color:var(--accent); font-weight:bold;">🦗 獲物選択 (成功率):</label>
-            <!-- 協力捕食チェック -->
             <label id="coop-feed-label" style="font-size:9px; color:var(--accent-gold); display:none;">
               <input type="checkbox" id="coop-feed-chk" onchange="onCoopFeedToggle()" style="width:auto; margin:0 2px 0 0; vertical-align:middle;">仲間に協力申請を送る
             </label>
@@ -511,10 +491,12 @@
           <select id="feed-target-sel" onchange="checkLargePrey()"></select>
         </div>
 
-        <!-- 相手を指名 -->
         <div id="actor-target-box" style="display:none; margin-top:4px; background:#1c241d; padding:5px; border-radius:4px; border:1px dashed var(--accent-gold);">
-          <label style="font-size:10px; color:var(--accent-gold); font-weight:bold;" id="actor-target-label">🤝 相手を指名:</label>
-          <select id="actor-target-sel"></select>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="font-size:10px; color:var(--accent-gold); font-weight:bold;" id="actor-target-label">🤝 相手を指名:</label>
+            <span id="coop-chance-badge" style="font-size:9px; font-weight:bold; color:#77ff77;"></span>
+          </div>
+          <select id="actor-target-sel" onchange="updateCoopChanceDisplay()"></select>
         </div>
 
         <button class="primary" id="submit-btn" style="margin-top:6px;" onclick="sendAction()">この行動で確定する ✔</button>
@@ -524,7 +506,6 @@
         </button>
       </div>
 
-      <!-- プレイヤー進行状況 ＆ ログ -->
       <div class="panel">
         <div style="font-size:9px; color:#aaa;">参加PL状況 (タップで詳細確認):</div>
         <div class="player-list" id="player-list"></div>
@@ -534,7 +515,7 @@
     </div>
   </div>
 
-  <!-- ================= 画面3：リザルト画面 ================= -->
+  <!-- 画面3：リザルト画面 -->
   <div id="result-screen" class="panel">
     <h2 style="color:var(--accent-gold); text-align:center; margin:0 0 6px 0;">🏆 生態系サバイバル結果</h2>
     <div id="ranking-box"></div>
@@ -546,6 +527,64 @@
 </div>
 
 <script>
+const PREY_MASTER = {
+  0: [
+    { id: "algae", name: "アオミドロ(藻)", diff: 0, food: 18, exp: 8 },
+    { id: "chironomid", name: "ユスリカの幼虫", diff: 10, food: 22, exp: 12 }
+  ],
+  1: [
+    { id: "daphnia", name: "ミジンコ", diff: 5, food: 15, exp: 8 },
+    { id: "wriggler", name: "ボウフラ", diff: 15, food: 25, exp: 14 },
+    { id: "bloodworm", name: "アカムシ", diff: 20, food: 28, exp: 18 }
+  ],
+  2: [
+    { id: "mosquito", name: "落ちた蚊", diff: 25, food: 30, exp: 20 },
+    { id: "strider", name: "アメンボ", diff: 30, food: 32, exp: 22 }
+  ],
+  3: [
+    { id: "woodlouse", name: "ワラジムシ", diff: 35, food: 38, exp: 25 },
+    { id: "fly", name: "小型ハエ", diff: 40, food: 40, exp: 28 }
+  ],
+  4: [
+    { id: "cricket", name: "コオロギ", diff: 50, food: 55, exp: 35 },
+    { id: "grasshopper", name: "大型バッタ", diff: 65, food: 65, exp: 45 },
+    { id: "earthworm", name: "巨大ミミズ (大物)", diff: 85, food: 85, exp: 35 }
+  ]
+};
+
+const TRAITS_DATA = {
+  "頑強": {
+    name: "【頑強 (保水型)】", badge: "特徴: 頑強",
+    plus: "皮膚が分厚く、陸地・草むらでの水分の減少速度が40%軽減される。",
+    minus: "体がやや重く、移動時の気力(スタミナ)消費がわずかに増える。",
+    tip: "乾燥を恐れず、晴れの日でも陸地へ上がって高栄養な虫を独占せよ！"
+  },
+  "大食漢": {
+    name: "【大食漢 (巨体型)】", badge: "特徴: 大食漢",
+    plus: "消化効率が良く、捕食時の体重・体長・EXP増加量が +20% される。",
+    minus: "代謝が激しく、毎ターンの満腹度の減りが少し早い (燃費が悪い)。",
+    tip: "常に餌を狩り続けるリスクはあるが、誰よりも巨大な成体カエルへと育つ！"
+  },
+  "身軽": {
+    name: "【身軽 (俊敏型)】", badge: "特徴: 身軽",
+    plus: "素早く小回りが利き、天敵からの逃走・回避成功率が +15% される。",
+    minus: "体がスリムで体重が増えにくく、捕食力やシェルター押し出し争いでやや不利。",
+    tip: "天敵に狙われても生き残りやすい。無理に大型獲物を追わず手堅く生きよ！"
+  },
+  "高代謝": {
+    name: "【高代謝 (早熟型)】", badge: "特徴: 高代謝",
+    plus: "成長の変態スピードが早く、足が生えるまでの必要EXPが -20% 軽減される。",
+    minus: "飢餓や乾燥に陥ったときのHPダメージが通常よりやや大きい。",
+    tip: "序盤に一気に変態して他の兄弟を突き放し、誰よりも早く陸上へ進出せよ！"
+  },
+  "慎重": {
+    name: "【慎重 (直感型)】", badge: "特徴: 慎重",
+    plus: "周囲の気配に敏感で、天敵の予兆を100%察知し、見張り効果が大幅に上昇する。",
+    minus: "慎重すぎるため、一か八かの大獲物に対する捕食成功率がわずかに控えめ。",
+    tip: "安全第一のタートル戦略に最適。仲間と見張りを分担して確実に終盤まで生き残れ！"
+  }
+};
+
 let ws = null;
 let currentRoomId = null;
 let myActorId = null;
@@ -556,6 +595,7 @@ let lastRenderedTurn = -1;
 let lastRenderedEventId = null;
 let lastShownSummaryTurn = -1;
 
+const STAGE_NAMES = ["", "オタマジャクシ", "後足が生えた", "前足が生えた", "変態期(尾あり)", "子ガエル", "成体カエル"];
 const ZONE_NAMES = ["① 泥底・泥地", "② 水中(水草)", "③ 水面・浅瀬", "④ 水際・倒木", "⑤ 草むら・陸地"];
 
 const FROG_PALETTES = {
@@ -660,12 +700,10 @@ function handleStateUpdate(state) {
     hasShownTraitModal = true;
   }
 
-  // ★自分宛ての協力申請チェック
   if (state.status === "playing" && state.coopRequests && state.coopRequests[myActorId]) {
     showCoopConfirmModal(state.coopRequests[myActorId]);
   }
 
-  // ターンサマリー表示
   if (state.status === "playing" && state.turnSummaries && state.turnSummaries[myActorId]) {
     const sum = state.turnSummaries[myActorId];
     if (sum.turn > lastShownSummaryTurn && sum.turn > 1) {
@@ -731,7 +769,6 @@ function closeTraitModal() {
   document.getElementById("game-screen").style.display = isLandscape ? "grid" : "block";
 }
 
-// ★協力申請モーダル
 function showCoopConfirmModal(req) {
   const typeTxt = req.type === "huddle" ? "【カエル団子 (集団保湿)】" : "【大型獲物の協力捕食】";
   document.getElementById("coop-req-msg").innerText = `${req.fromName} から ${typeTxt} の協力申請が届きました！`;
@@ -825,7 +862,6 @@ function closeZoneActorsModal() {
   document.getElementById("zone-actors-modal").style.display = "none";
 }
 
-// ★相手の詳細ステータスモーダルを開く
 function openTargetDetailModal(targetId) {
   if (!lastState || !lastState.actors) return;
   const target = lastState.actors[targetId];
@@ -918,7 +954,6 @@ function renderGameUI(state) {
     document.getElementById("txt-len").innerText = me.length.toFixed(1);
     document.getElementById("txt-wt").innerText = me.weight.toFixed(1);
 
-    // ★EXPゲージ（次のレベルまでのプログレス）
     const nextReq = 10 + (me.level * 6);
     const expPct = Math.min(100, Math.round((me.exp / nextReq) * 100));
     document.getElementById("bar-exp").style.width = expPct + "%";
@@ -1040,7 +1075,6 @@ function onActionChange() {
   }
 }
 
-// 大型獲物時の協力捕食チェック表示
 function checkLargePrey() {
   const preyId = document.getElementById("feed-target-sel").value;
   const coopLabel = document.getElementById("coop-feed-label");
@@ -1132,6 +1166,49 @@ function updateActorTargetOptions() {
     });
     if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
   }
+  updateCoopChanceDisplay();
+}
+
+// ★NPC協力受諾確率（%）の計算＆リアルタイム表示
+function updateCoopChanceDisplay() {
+  const badge = document.getElementById("coop-chance-badge");
+  badge.innerText = "";
+  if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
+
+  const targetId = document.getElementById("actor-target-sel").value;
+  if (!targetId) return;
+
+  const me = lastState.actors[myActorId];
+  const target = lastState.actors[targetId];
+  if (!target) return;
+
+  const act = document.getElementById("act-sel").value;
+  const isCoopFeed = (act === "feed" && document.getElementById("coop-feed-chk").checked);
+
+  if (target.isPlayer) {
+    badge.innerText = "見込み: 相手プレイヤーの判断次第";
+    badge.style.color = "#aaddff";
+    return;
+  }
+
+  // NPC受諾確率計算
+  const aff = (me.affinity && me.affinity[target.id]) ? me.affinity[target.id] : 0;
+  let baseChance = 35;
+  if (target.personality === "温厚") baseChance = 50;
+  if (target.personality === "利己") baseChance = 20;
+  if (target.personality === "獰猛") baseChance = 15;
+
+  let chance = baseChance + (aff * 0.5);
+  if (me.hp >= 70 && me.stamina >= 50) chance += 10;
+  if (me.hp <= 30) chance -= 20;
+
+  if (act === "huddle" && target.water <= 50) chance += 20;
+  if (isCoopFeed && target.food <= 50) chance += 20;
+
+  chance = Math.max(5, Math.min(95, Math.round(chance)));
+
+  badge.innerText = `協力見込み: ${chance}%`;
+  badge.style.color = chance >= 70 ? "#77ff77" : (chance >= 40 ? "#ffff77" : "#ff7777");
 }
 
 function renderAreaEventCard(state, me) {
@@ -1177,7 +1254,6 @@ function renderAreaEventCard(state, me) {
   }
 }
 
-// 行動送信（協力申請の連動）
 function sendAction() {
   const moveZone = parseInt(document.getElementById("move-sel").value);
   const act = document.getElementById("act-sel").value;
@@ -1185,7 +1261,6 @@ function sendAction() {
   const targetId = document.getElementById("actor-target-sel").value;
   const evChoice = document.getElementById("ev-choice-sel").value;
 
-  // 協力捕食チェックがついている場合
   const isCoopFeed = (act === "feed" && document.getElementById("coop-feed-chk").checked && targetId);
 
   if (isCoopFeed && ws && ws.readyState === WebSocket.OPEN) {
@@ -1229,7 +1304,7 @@ function renderResult(state) {
   }
 }
 
-// ==================== 2Dドット絵アニメーション ====================
+// 2Dドット絵アニメーションエンジン
 function updateAnim() {
   blinkTimer++;
   if (blinkTimer > 150) blinkTimer = 0;

@@ -10,9 +10,8 @@ const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ==================== 定数・マスターデータ ====================
 const MAX_TURNS = 35;
-const TURN_DURATION = 120;
+const TURN_DURATION = 120; // 思考時間2分
 
 const ZONES = [
   { id: 0, name: "① 水底・泥地", minStage: 1, baseWaterLoss: 0, prey: [
@@ -39,8 +38,6 @@ const ZONES = [
   ]}
 ];
 
-// ★レベルと変態段階の対応（成体以降もレベルは上がり続ける！）
-// Lv 1〜2: オタマ / Lv 3〜4: 後足 / Lv 5〜6: 前足 / Lv 7〜8: 尾変態 / Lv 9〜11: 子ガエル / Lv 12〜: 成体
 function getStageFromLevel(level) {
   if (level >= 12) return 6; // 成体
   if (level >= 9) return 5;  // 子ガエル
@@ -51,14 +48,13 @@ function getStageFromLevel(level) {
 }
 
 function getNextExpForLevel(level) {
-  return 10 + (level * 6); // レベルが上がるにつれて必要EXPが少しずつ増加
+  return 10 + (level * 6);
 }
 
 const STAGE_NAMES = ["", "オタマジャクシ", "後足が生えた", "前足が生えた", "変態期(尾あり)", "子ガエル", "成体カエル"];
 const NPC_PERSONALITIES = ["温厚", "臆病", "利己", "獰猛", "気まぐれ"];
 const TRAITS = ["頑強", "大食漢", "身軽", "高代謝", "慎重"];
 
-// エリア別イベント
 const AREA_EVENTS = {
   global: [
     { id: "g_rain", title: "【全体】恵みのゲリラ豪雨", desc: "池全体に激しいスコール！陸地が潤い、虫たちが地面に落ちてきた！", choices: [{ id: "rush", text: "🦗 陸へ駆け上がって乱獲" }, { id: "stay", text: "💧 水中で安全に雨宿り" }] },
@@ -66,33 +62,24 @@ const AREA_EVENTS = {
   ],
   4: [
     { id: "p_snake_nest", type: "pair", title: "【草むら】ヘビの寝床の獲物", desc: "眠る大蛇のすぐ脇にバッタの卵塊を発見！音を立てればヘビが目覚める！", choices: [{ id: "creep", text: "🤫 忍び足で分け合う (協調)" }, { id: "push", text: "⚡ 相手を突き飛ばして逃走 (非情)" }] },
-    { id: "p_dew", type: "pair", title: "【草むら】朝露の分け合い", desc: "草の先端に大粒の朝露が1滴だけ残っている……", choices: [{ id: "share", text: "💧 半分ずつ吸い合う (協調)" }, { id: "drink_all", text: "⚡ 突き飛ばして一気飲み (独占)" }] },
-    { id: "p_mantis", type: "pair", title: "【草むら】巨大オオカマキリ", desc: "草むらで凶暴なカマキリと鉢合わせ！2匹で威嚇すれば撃退できるが……？", choices: [{ id: "threat", text: "👥 2匹で同時に威嚇する" }, { id: "bait", text: "🏃 相手を盾にして逃走する" }] },
-    { id: "p_dry_huddle", type: "pair", title: "【草むら】酷暑の吸湿", desc: "強烈な日差しで皮膚が乾いていく！相手の水分を奪うか、分け合うか？", choices: [{ id: "huddle", text: "🤝 抱き合って保湿する" }, { id: "suck", text: "🧛 相手の水分を吸い取る" }] }
+    { id: "p_dew", type: "pair", title: "【草むら】朝露の分け合い", desc: "快晴の暑さ。草の先端に大粒の朝露が1滴だけ残っている……", choices: [{ id: "share", text: "💧 半分ずつ吸い合う (協調)" }, { id: "drink_all", text: "⚡ 突き飛ばして一気飲み (独占)" }] }
   ],
   3: [
     { id: "p_log_entry", type: "pair", title: "【水際】倒木シェルターの定員", desc: "サギ接近！倒木の狭い空洞は1匹分しかない！押し合うか、譲るか？", choices: [{ id: "squeeze", text: "🤝 半分ずつ押し込み合う" }, { id: "kick_out", text: "🦶 相手を外へ蹴り出す" }] },
-    { id: "p_mud_step", type: "pair", title: "【水際】泥沼の足場", desc: "深い泥に足を取られて動けない！どちらが先に脱出するか？", choices: [{ id: "give_back", text: "🪜 背中を踏み台に貸す (利他)" }, { id: "step_on", text: "🦶 相手を踏み台にして跳ぶ (利用)" }] },
     { id: "g_worm", type: "global_area", title: "【水際】流れてきた大ミミズ", desc: "岸辺の泥に巨大な獲物が漂着！山分けするか、独り占めを狙うか？", choices: [{ id: "coop", text: "🤝 山分けを提案" }, { id: "betray", text: "⚔️ 独り占めを狙う" }] }
   ],
   2: [
-    { id: "p_leaf", type: "pair", title: "【水面】浮き草の定員", desc: "サギ接近中！1匹しか乗れない浮き葉の上で鉢合わせた。重みで沈む前にどうする？", choices: [{ id: "coop", text: "🤝 譲り合って片足で耐える" }, { id: "kick", text: "🦶 相手を水中に蹴り落とす" }] },
-    { id: "p_ripple_decoy", type: "pair", title: "【水面】波紋のデコイ", desc: "サギが水面を凝視している。水面を激しく叩けばサギの気を引けるが……？", choices: [{ id: "freeze", text: "🧘 じっと息を潜める" }, { id: "splash", text: "💦 相手の周りに波を立てる" }] },
-    { id: "p_sink_strider", type: "pair", title: "【水面】沈むアメンボの奪い合い", desc: "溺れかけた高栄養のアメンボが浮いている！", choices: [{ id: "tear", text: "🍴 半分ずつちぎる" }, { id: "swallow", text: "⚡ 丸呑みダッシュ" }] }
+    { id: "p_leaf", type: "pair", title: "【水面】浮き草の定員", desc: "サギ接近中！1匹しか乗れない浮き葉の上で鉢合わせた。重みで沈む前にどうする？", choices: [{ id: "coop", text: "🤝 譲り合って片足で耐える" }, { id: "kick", text: "🦶 相手を水中に蹴り落とす" }] }
   ],
   1: [
-    { id: "p_weed_trap", type: "pair", title: "【水中】水草に絡まった仲間", desc: "相手が水草に尾びれを絡め取られて動けない！助けるか、襲うか？", choices: [{ id: "rescue", text: "✂️ 水草を噛みちぎって助ける" }, { id: "cannibal", text: "😈 動けない相手の尾をかじる" }] },
-    { id: "p_wriggler_swarm", type: "pair", title: "【水中】ボウフラの密集地", desc: "水草の影にボウフラの群れ！分け合うか独占するか？", choices: [{ id: "share_feed", text: "🤝 交代で食べる" }, { id: "chase_away", text: "⚔️ 相手を追い払って独占" }] },
-    { id: "s_skin", type: "personal", title: "【水中】古い皮膚の脱皮", desc: "水草の間で古い皮が剥がれてきた。栄養にするか？", choices: [{ id: "eat_skin", text: "🍴 口で食べて栄養にする" }, { id: "discard", text: "💨 そのまま脱ぎ捨てる" }] }
+    { id: "p_weed_trap", type: "pair", title: "【水中】水草に絡まった仲間", desc: "相手が水草に尾びれを絡め取られて動けない！助けるか、襲うか？", choices: [{ id: "rescue", text: "✂️ 水草を噛みちぎって助ける" }, { id: "cannibal", text: "😈 動けない相手の尾をかじる" }] }
   ],
   0: [
     { id: "p_yago_ambush", type: "pair", title: "【水底】ヤゴの巣穴の発見", desc: "泥の底にヤゴが潜んでいるのを2匹が同時に気づいた！", choices: [{ id: "back_off", text: "🤫 目配せして静かに後退" }, { id: "push_bait", text: "⚡ 相手をヤゴの前へ突き飛ばす" }] },
-    { id: "p_mud_detritus", type: "pair", title: "【水底】泥底の有機物の塊", desc: "泥の奥底に高栄養なデトリタスが埋もれている！", choices: [{ id: "dig_coop", text: "⛏️ 2匹で掘り起こして山分け" }, { id: "mud_blind", text: "💨 泥を巻き上げて相手の目をくらます" }] },
     { id: "s_moss", type: "personal", title: "【水底】青白く光る苔", desc: "暗い泥底に怪しく光る苔が生い茂っている。極上の栄養か、毒か？", choices: [{ id: "eat", text: "😋 思い切って食べる" }, { id: "ignore", text: "🙅 怪しいので無視する" }] }
   ]
 };
 
-// ==================== ルーム管理 ====================
 const rooms = {};
 
 function createNewRoom(roomId) {
@@ -109,8 +96,8 @@ function createNewRoom(roomId) {
     actors: {},
     eventsByZone: {},
     pairTargets: {},
-    coopRequests: {}, // 協力申請データ { [targetId]: { fromId, type, preyId } }
-    coopAccepted: {}, // 成立した協力 { [actorId]: { partnerId, type, preyId } }
+    coopRequests: {},
+    coopAccepted: {},
     turnSummaries: {},
     isFinished: false,
     timer: null
@@ -133,19 +120,19 @@ function createActor(id, name, isPlayer) {
   return {
     id, name, isPlayer, personality, trait, gender,
     alive: true,
-    level: 1,       // ★レベル概念
+    level: 1,
     exp: 0,
     stage: 1,
     eggs: 2,
     offspringCount: 0,
     hp: 100, food: 100, water: 100, stamina: 100,
-    length: 1.0,    // ★体長(cm)
-    weight: 0.5,    // ★体重(g)
+    length: 1.0,
+    weight: 0.5,
     zone: 1,
     ready: false,
     action: null,
     eventChoice: null,
-    affinity: {},   // 親密度
+    affinity: {},
     history: [`第1世代の卵塊から誕生（性別: ${gender === '♂' ? 'オス' : 'メス'} / 特徴: ${trait}）`]
   };
 }
@@ -204,7 +191,6 @@ function pickAreaEvents(room) {
   }
 }
 
-// ==================== ターン解決ロジック ====================
 function resolveTurn(room) {
   if (room.isFinished) return;
 
@@ -242,7 +228,7 @@ function resolveTurn(room) {
   // 3. エリア連動イベント解決
   resolveAreaEvents(room, logs);
 
-  // 4. 天敵襲来
+  // 4. 天敵襲来（豪雨時は天敵が隠れて安全）
   if (room.nextPredator && room.weather !== "豪雨") {
     room.activePredatorAnimation = room.nextPredator;
     resolvePredator(room, logs);
@@ -250,10 +236,10 @@ function resolveTurn(room) {
     logs.push("⛈️ 激しい豪雨のため、天敵たちは身を潜めている。");
   }
 
-  // 5. アクション解決（協力捕食・カエル団子・求愛・通常捕食）
+  // 5. アクション解決（捕食・団子・求愛など）
   resolveActions(room, logs);
 
-  // 6. 代謝・レベルアップ・成長・死亡
+  // 6. 代謝・成長・死亡
   resolveMetabolism(room, logs);
 
   // 7. 勝敗判定
@@ -283,7 +269,6 @@ function resolveTurn(room) {
 
   pickAreaEvents(room);
 
-  // 協力データ・Readyリセット
   room.coopRequests = {};
   room.coopAccepted = {};
   Object.values(room.actors).forEach(a => {
@@ -342,7 +327,6 @@ function decideNpcTurn(npc, room) {
   }
 }
 
-// ★ペアイベント解決：親密度の微調整（+6 / -12）とターンサマリーへの詳細記録
 function resolveAreaEvents(room, logs) {
   const alive = Object.values(room.actors).filter(a => a.alive);
 
@@ -365,8 +349,8 @@ function resolveAreaEvents(room, logs) {
         if (ev.id === "p_leaf") {
           if (p1.eventChoice === "coop" && p2.eventChoice === "coop") {
             addAffinity(p1, p2, 6);
-            setEventSummary(room, p1, `浮葉を譲り合い耐えた (${p2.name}との親密度+6)`);
-            setEventSummary(room, p2, `浮葉を譲り合い耐えた (${p1.name}との親密度+6)`);
+            setEventSummary(room, p1, `浮葉を譲り合い耐えた (${p2.name}親密度+6)`);
+            setEventSummary(room, p2, `浮葉を譲り合い耐えた (${p1.name}親密度+6)`);
             if (involvesPlayer) logs.push(`ペア結末[葉]: ${p1.name} と ${p2.name} は譲り合い耐えきった`);
           } else if (p1.eventChoice === "kick" && p2.eventChoice === "coop") {
             p2.hp -= 30; addAffinity(p2, p1, -12);
@@ -494,7 +478,7 @@ function resolvePredator(room, logs) {
   }
 }
 
-// ★アクション解決（協力捕食・カエル団子・求愛・通常捕食）
+// 繁殖時の産卵数計算：親密度ランクに完全連動
 function resolveActions(room, logs) {
   const alive = Object.values(room.actors).filter(a => a.alive);
   const matingDone = new Set();
@@ -519,7 +503,6 @@ function resolveActions(room, logs) {
       if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = "周囲を警戒し仲間を見張った（天敵察知100%）";
       if (a.isPlayer) logs.push(`${a.name}: 周囲を警戒し、天敵の接近を見張った`);
     } else if (act === "huddle") {
-      // カエル団子（成立チェック）
       if (room.coopAccepted[a.id] && room.coopAccepted[a.id].type === "huddle" && !coopDone.has(a.id)) {
         const partner = room.actors[room.coopAccepted[a.id].partnerId];
         coopDone.add(a.id); coopDone.add(partner.id);
@@ -528,11 +511,10 @@ function resolveActions(room, logs) {
         partner.water = Math.min(100, partner.water + 25);
         addAffinity(a, partner, 8);
 
-        if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `${partner.name} と身を寄せ合いカエル団子で保湿！（水分+25, 親密度+8）`;
-        if (partner.isPlayer && room.turnSummaries[partner.id]) room.turnSummaries[partner.id].action = `${a.name} と身を寄せ合いカエル団子で保湿！（水分+25, 親密度+8）`;
+        if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `${partner.name} とカエル団子で保湿！（水分+25, 親密度+8）`;
+        if (partner.isPlayer && room.turnSummaries[partner.id]) room.turnSummaries[partner.id].action = `${a.name} とカエル団子で保湿！（水分+25, 親密度+8）`;
         logs.push(`🤝 ${a.name} と ${partner.name} は寄り添い、乾燥を防いだ (親密度UP)`);
       } else if (!room.coopAccepted[a.id]) {
-        // 単独または断られた
         if (a.isPlayer && room.turnSummaries[a.id]) room.turnSummaries[a.id].action = `カエル団子の相手が見つからず、身をすくめて耐えた`;
       }
     } else if (act === "attack" && target && target.alive && target.zone === a.zone) {
@@ -542,7 +524,6 @@ function resolveActions(room, logs) {
       if (target.isPlayer && room.turnSummaries[target.id]) room.turnSummaries[target.id].danger = `${a.name} から攻撃を受けた！ (HP-20)`;
       if (a.isPlayer || target.isPlayer) logs.push(`⚔️ ${a.name} が ${target.name} を攻撃した！（${target.name} HP-20）`);
     } else if (act === "feed") {
-      // 協力捕食が成立している場合
       if (room.coopAccepted[a.id] && room.coopAccepted[a.id].type === "feed" && !coopDone.has(a.id)) {
         const partner = room.actors[room.coopAccepted[a.id].partnerId];
         const preyId = room.coopAccepted[a.id].preyId;
@@ -554,7 +535,6 @@ function resolveActions(room, logs) {
         a.stamina = Math.max(0, a.stamina - 12);
         partner.stamina = Math.max(0, partner.stamina - 12);
 
-        // 2匹の捕食力を合算！
         const p1Power = (a.length * 5) + (a.weight * 3) + (a.stamina * 0.2);
         const p2Power = (partner.length * 5) + (partner.weight * 3) + (partner.stamina * 0.2);
         let chance = 60 + ((p1Power + p2Power) - prey.diff) * 2;
@@ -576,7 +556,6 @@ function resolveActions(room, logs) {
           if (partner.isPlayer && room.turnSummaries[partner.id]) room.turnSummaries[partner.id].action = `【協力捕食失敗】${a.name} と挑んだが、${prey.name} に逃げられた`;
         }
       } else if (!coopDone.has(a.id)) {
-        // 単独捕食
         const zData = ZONES[a.zone];
         const prey = zData.prey.find(p => p.id === a.action.targetPreyId) || zData.prey[0];
 
@@ -628,8 +607,20 @@ function resolveActions(room, logs) {
 
       if (isSuccess) {
         matingDone.add(a.id); matingDone.add(target.id);
-        const affBonus = Math.floor(((a.affinity[target.id] || 0) + (target.affinity[a.id] || 0)) * 0.3);
-        const eggs = 20 + Math.floor(Math.random() * 15) + affBonus;
+
+        const aff = Math.max(a.affinity[target.id] || 0, target.affinity[a.id] || 0);
+        let baseMin = 15, baseMax = 20;
+        let rankTxt = "初対面・行きずり";
+
+        if (aff >= 70) {
+          baseMin = 46; baseMax = 60; rankTxt = "無二の親友 (真の絆)";
+        } else if (aff >= 40) {
+          baseMin = 31; baseMax = 45; rankTxt = "親密 (ピンク枠💕)";
+        } else if (aff >= 20) {
+          baseMin = 21; baseMax = 30; rankTxt = "顔見知り";
+        }
+
+        const eggs = baseMin + Math.floor(Math.random() * (baseMax - baseMin + 1));
 
         a.offspringCount += eggs;
         target.offspringCount += eggs;
@@ -637,17 +628,17 @@ function resolveActions(room, logs) {
         target.food = Math.max(10, target.food - 30); target.stamina = Math.max(10, target.stamina - 40);
 
         if (a.isPlayer && room.turnSummaries[a.id]) {
-          room.turnSummaries[a.id].action = `💖 【交配成功！】${target.name} と結ばれ、卵を ${eggs} 個産み落とした！`;
+          room.turnSummaries[a.id].action = `💖 【交配成功！】${target.name} と結ばれた！[${rankTxt}] 絆の力で卵を ${eggs} 個産卵！（大量得点）`;
         }
         if (target.isPlayer && room.turnSummaries[target.id]) {
-          room.turnSummaries[target.id].action = `💖 【交配成功！】${a.name} と結ばれ、卵を ${eggs} 個産み落とした！`;
+          room.turnSummaries[target.id].action = `💖 【交配成功！】${a.name} と結ばれた！[${rankTxt}] 絆の力で卵を ${eggs} 個産卵！（大量得点）`;
         }
 
         if (a.isPlayer || target.isPlayer) {
-          logs.push(`💖 【交配成立！】${a.name} と ${target.name} が親愛の絆で卵を${eggs}個産み落とした！`);
+          logs.push(`💖 【交配成立！】${a.name} と ${target.name} が結ばれ、[${rankTxt}] 卵を${eggs}個産み落とした！`);
         }
-        a.history.push(`TURN ${room.turn}: ${target.name} と交配し卵を${eggs}個残す`);
-        target.history.push(`TURN ${room.turn}: ${a.name} と交配し卵を${eggs}個残す`);
+        a.history.push(`TURN ${room.turn}: ${target.name} と交配し卵を${eggs}個残す [${rankTxt}]`);
+        target.history.push(`TURN ${room.turn}: ${a.name} と交配し卵を${eggs}個残す [${rankTxt}]`);
       }
     }
   });
@@ -660,7 +651,6 @@ function addAffinity(p1, p2, val) {
   p2.affinity[p1.id] = Math.max(0, Math.min(100, (p2.affinity[p1.id] || 0) + val));
 }
 
-// ★代謝・レベルアップ・体長・体重増加計算
 function resolveMetabolism(room, logs) {
   const alive = Object.values(room.actors).filter(a => a.alive);
 
@@ -704,7 +694,6 @@ function resolveMetabolism(room, logs) {
       room.turnSummaries[a.id].metabolism = metaTxt;
     }
 
-    // ★レベルアップ判定（EXP蓄積によるレベル上昇 ＆ 体長・体重の増加）
     let nextReq = getNextExpForLevel(a.level);
     let leveledUp = false;
 
@@ -713,14 +702,12 @@ function resolveMetabolism(room, logs) {
       a.level++;
       leveledUp = true;
 
-      // 体長・体重の増加
       a.length += 0.35;
       a.weight += 0.75;
 
       const oldStage = a.stage;
       a.stage = getStageFromLevel(a.level);
 
-      // 変態の達成
       if (a.stage > oldStage) {
         if (a.isPlayer && room.turnSummaries[a.id]) {
           room.turnSummaries[a.id].growth = `🎉 『${STAGE_NAMES[a.stage]}』へ変態達成！ (Lv.${a.level} / 体長:${a.length.toFixed(1)}cm / 体重:${a.weight.toFixed(1)}g)`;
@@ -756,7 +743,6 @@ function killActor(actor, reason, room, logs) {
     actor.eggs--;
     actor.hp = 100; actor.food = 80; actor.water = 100; actor.stamina = 100;
     actor.zone = 1;
-    // 出遅れとしてレベル-1
     if (actor.level > 1) actor.level--;
     actor.exp = 0;
     actor.stage = getStageFromLevel(actor.level);
@@ -775,6 +761,7 @@ function killActor(actor, reason, room, logs) {
   }
 }
 
+// 最終スコア：最終レベルを「Lv × 150pt」で大きく評価！
 function finishGame(room, logs) {
   room.isFinished = true;
   room.status = "finished";
@@ -782,7 +769,7 @@ function finishGame(room, logs) {
   logs.push("❄️ 池の水面が凍結し、冬が訪れた。サバイバル終了！");
 
   const ranking = Object.values(room.actors).map(a => {
-    let score = (room.turn * 100) + (a.offspringCount * 50) + (a.level * 20);
+    let score = (room.turn * 100) + (a.offspringCount * 50) + (a.level * 150);
     if (a.alive) score += 1500;
     return {
       id: a.id,
@@ -867,7 +854,6 @@ wss.on('connection', (ws) => {
         }
       }
 
-      // ★協力申請の送信（プレイヤーまたはNPC宛て）
       if (data.type === "SEND_COOP_REQUEST" && myRoomId) {
         const room = rooms[myRoomId];
         if (room && room.status === "playing") {
@@ -876,29 +862,35 @@ wss.on('connection', (ws) => {
 
           if (fromActor && targetActor && fromActor.alive && targetActor.alive && fromActor.zone === targetActor.zone) {
             if (targetActor.isPlayer) {
-              // プレイヤー宛て：申請キューに登録
               room.coopRequests[targetActor.id] = {
                 fromId: fromActor.id,
                 fromName: fromActor.name,
-                type: data.coopType, // "huddle" または "feed"
+                type: data.coopType,
                 preyId: data.preyId
               };
               broadcastState(room);
             } else {
-              // ★NPC宛て：即座にNPCが受託するか判定！
+              // ★NPC受諾確率計算
               const aff = targetActor.affinity[fromActor.id] || 0;
-              let acceptChance = 0.5;
-              if (targetActor.personality === "温厚") acceptChance = 0.85;
-              if (targetActor.personality === "利己") acceptChance = 0.35;
-              if (aff >= 40) acceptChance += 0.3;
+              let baseChance = 35;
+              if (targetActor.personality === "温厚") baseChance = 50;
+              if (targetActor.personality === "利己") baseChance = 20;
+              if (targetActor.personality === "獰猛") baseChance = 15;
 
-              if (Math.random() < acceptChance) {
-                // NPCが受託！
+              let chance = baseChance + (aff * 0.5);
+              if (fromActor.hp >= 70 && fromActor.stamina >= 50) chance += 10;
+              if (fromActor.hp <= 30) chance -= 20;
+
+              if (data.coopType === "huddle" && targetActor.water <= 50) chance += 20;
+              if (data.coopType === "feed" && targetActor.food <= 50) chance += 20;
+
+              chance = Math.max(5, Math.min(95, Math.round(chance)));
+
+              if (Math.random() * 100 < chance) {
                 room.coopAccepted[fromActor.id] = { partnerId: targetActor.id, type: data.coopType, preyId: data.preyId };
                 room.coopAccepted[targetActor.id] = { partnerId: fromActor.id, type: data.coopType, preyId: data.preyId };
                 ws.send(JSON.stringify({ type: "COOP_RESPONSE_NOTIFY", accepted: true, targetName: targetActor.name }));
               } else {
-                // NPCが拒否
                 addAffinity(targetActor, fromActor, -6);
                 ws.send(JSON.stringify({ type: "COOP_RESPONSE_NOTIFY", accepted: false, targetName: targetActor.name }));
               }
@@ -907,7 +899,6 @@ wss.on('connection', (ws) => {
         }
       }
 
-      // ★協力申請への応答（受諾 / 拒否）
       if (data.type === "RESPOND_COOP" && myRoomId) {
         const room = rooms[myRoomId];
         if (room && room.status === "playing") {
@@ -917,14 +908,11 @@ wss.on('connection', (ws) => {
             const toActor = room.actors[myActorId];
 
             if (data.accept && fromActor && toActor) {
-              // 受託！お互いの行動を協力に上書き
               room.coopAccepted[fromActor.id] = { partnerId: toActor.id, type: req.type, preyId: req.preyId };
               room.coopAccepted[toActor.id] = { partnerId: fromActor.id, type: req.type, preyId: req.preyId };
-
               toActor.action = { moveZone: toActor.zone, act: req.type, targetId: fromActor.id, targetPreyId: req.preyId };
               addAffinity(fromActor, toActor, 8);
             } else if (fromActor && toActor) {
-              // 拒否：親密度が少し下がる
               addAffinity(fromActor, toActor, -6);
             }
             delete room.coopRequests[myActorId];
