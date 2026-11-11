@@ -128,7 +128,7 @@ function createActor(id, name, isPlayer) {
     hp: 100, food: 100, water: 100, stamina: 100,
     length: 1.0,
     weight: 0.5,
-    zone: 1,
+    zone: 1, // 初期水中
     ready: false,
     action: null,
     eventChoice: null,
@@ -163,8 +163,9 @@ function pickAreaEvents(room) {
 
   const byZone = {};
   aliveList.forEach(a => {
-    byZone[a.zone] = byZone[a.zone] || [];
-    byZone[a.zone].push(a.id);
+    const az = parseInt(a.zone, 10) || 1;
+    byZone[az] = byZone[az] || [];
+    byZone[az].push(a.id);
   });
 
   const globalBase = AREA_EVENTS.global[Math.floor(Math.random() * AREA_EVENTS.global.length)];
@@ -191,6 +192,7 @@ function pickAreaEvents(room) {
   }
 }
 
+// ターン解決処理
 function resolveTurn(room) {
   if (room.isFinished) return;
 
@@ -215,11 +217,11 @@ function resolveTurn(room) {
   // 1. NPC思考
   alive.filter(a => !a.isPlayer).forEach(npc => decideNpcTurn(npc, room));
 
-  // 2. 移動の実行
+  // 2. 移動の実行（安全チェック）
   alive.forEach(a => {
     if (a.action && a.action.moveZone !== undefined) {
-      const tz = a.action.moveZone;
-      if (tz >= 0 && tz <= 4 && a.stage >= ZONES[tz].minStage) {
+      const tz = parseInt(a.action.moveZone, 10);
+      if (!isNaN(tz) && tz >= 0 && tz <= 4 && a.stage >= ZONES[tz].minStage) {
         a.zone = tz;
       }
     }
@@ -228,7 +230,7 @@ function resolveTurn(room) {
   // 3. エリア連動イベント解決
   resolveAreaEvents(room, logs);
 
-  // 4. 天敵襲来（豪雨時は天敵が隠れて安全）
+  // 4. 天敵襲来（豪雨時は安全）
   if (room.nextPredator && room.weather !== "豪雨") {
     room.activePredatorAnimation = room.nextPredator;
     resolvePredator(room, logs);
@@ -236,7 +238,7 @@ function resolveTurn(room) {
     logs.push("⛈️ 激しい豪雨のため、天敵たちは身を潜めている。");
   }
 
-  // 5. アクション解決（捕食・団子・求愛など）
+  // 5. アクション解決
   resolveActions(room, logs);
 
   // 6. 代謝・成長・死亡
@@ -281,14 +283,14 @@ function resolveTurn(room) {
 }
 
 function decideNpcTurn(npc, room) {
-  let tz = npc.zone;
+  let tz = parseInt(npc.zone, 10) || 1;
   if (npc.stage >= 5 && Math.random() < 0.4) {
     tz = (room.weather === "雨" || room.weather === "豪雨") ? 4 : 3;
   } else if (npc.stage < 4) {
     tz = Math.random() < 0.6 ? 1 : 0;
   }
   tz = Math.max(0, Math.min(4, tz));
-  if (tz > npc.stage) tz = npc.zone;
+  if (tz > npc.stage) tz = parseInt(npc.zone, 10) || 1;
 
   let act = "feed";
   let targetId = null;
@@ -299,10 +301,10 @@ function decideNpcTurn(npc, room) {
   } else if (npc.stamina < 30) {
     act = "rest";
   } else if (npc.stage >= 6 && Math.random() < 0.4) {
-    const partner = Object.values(room.actors).find(o => o.alive && o.id !== npc.id && o.zone === tz && o.stage >= 6 && o.gender !== npc.gender);
+    const partner = Object.values(room.actors).find(o => o.alive && o.id !== npc.id && parseInt(o.zone, 10) === tz && o.stage >= 6 && o.gender !== npc.gender);
     if (partner) { act = "mate"; targetId = partner.id; }
   } else if ((room.weather === "快晴" || room.weather === "日照り") && tz >= 4 && Math.random() < 0.5) {
-    const buddy = Object.values(room.actors).find(o => o.alive && o.id !== npc.id && o.zone === tz);
+    const buddy = Object.values(room.actors).find(o => o.alive && o.id !== npc.id && parseInt(o.zone, 10) === tz);
     if (buddy) { act = "huddle"; targetId = buddy.id; }
   }
 
@@ -333,7 +335,7 @@ function resolveAreaEvents(room, logs) {
   for (let z = 0; z < 5; z++) {
     const ev = room.eventsByZone[z];
     if (!ev) continue;
-    const actorsInZone = alive.filter(a => a.zone === z);
+    const actorsInZone = alive.filter(a => parseInt(a.zone, 10) === z);
 
     if (ev.type === "pair") {
       const handled = new Set();
@@ -374,8 +376,8 @@ function resolveAreaEvents(room, logs) {
           if (p1.eventChoice === "share" && p2.eventChoice === "share") {
             p1.water = Math.min(100, p1.water + 35); p2.water = Math.min(100, p2.water + 35);
             addAffinity(p1, p2, 6);
-            setEventSummary(room, p1, `${p2.name} と朝露を分け合った (水分+35, 親密度+6)`);
-            setEventSummary(room, p2, `${p1.name} と朝露を分け合った (水分+35, 親密度+6)`);
+            setEventSummary(room, p1, `${p2.name} と朝露を半分ずつ分け合った (水分+35, 親密度+6)`);
+            setEventSummary(room, p2, `${p1.name} と朝露を半分ずつ分け合った (水分+35, 親密度+6)`);
             if (involvesPlayer) logs.push(`ペア結末[露]: ${p1.name} と ${p2.name} は朝露を分け合った`);
           } else if (p1.eventChoice === "drink_all" && p2.eventChoice === "share") {
             p1.water = Math.min(100, p1.water + 75); addAffinity(p2, p1, -12);
@@ -459,7 +461,7 @@ function resolvePredator(room, logs) {
 
   if (room.nextPredator === "yago") {
     logs.push("【天敵急襲！】水底からヤゴのアゴが飛び出した！");
-    const victims = alive.filter(a => (a.zone === 0 || a.zone === 1) && (!a.action || a.action.act !== "rest"));
+    const victims = alive.filter(a => (parseInt(a.zone, 10) === 0 || parseInt(a.zone, 10) === 1) && (!a.action || a.action.act !== "rest"));
     victims.sort((a, b) => (a.isPlayer ? 1 : -1));
     if (victims.length > 0) {
       const v = victims[0];
@@ -468,7 +470,7 @@ function resolvePredator(room, logs) {
     }
   } else if (room.nextPredator === "heron") {
     logs.push("【天敵急襲！】アオサギの嘴が水面をドスンと突き刺した！");
-    const victims = alive.filter(a => a.zone === 2 && (!a.action || a.action.act !== "rest"));
+    const victims = alive.filter(a => parseInt(a.zone, 10) === 2 && (!a.action || a.action.act !== "rest"));
     victims.sort((a, b) => (a.isPlayer ? 1 : -1));
     if (victims.length > 0) {
       const v = victims[0];
@@ -478,7 +480,6 @@ function resolvePredator(room, logs) {
   }
 }
 
-// 繁殖時の産卵数計算：親密度ランクに完全連動
 function resolveActions(room, logs) {
   const alive = Object.values(room.actors).filter(a => a.alive);
   const matingDone = new Set();
@@ -761,7 +762,6 @@ function killActor(actor, reason, room, logs) {
   }
 }
 
-// 最終スコア：最終レベルを「Lv × 150pt」で大きく評価！
 function finishGame(room, logs) {
   room.isFinished = true;
   room.status = "finished";
@@ -820,7 +820,6 @@ function broadcastState(room, logs = [], ranking = null) {
   }
 }
 
-// ==================== WebSocket ====================
 wss.on('connection', (ws) => {
   let myRoomId = null;
   let myActorId = null;
@@ -870,7 +869,6 @@ wss.on('connection', (ws) => {
               };
               broadcastState(room);
             } else {
-              // ★NPC受諾確率計算
               const aff = targetActor.affinity[fromActor.id] || 0;
               let baseChance = 35;
               if (targetActor.personality === "温厚") baseChance = 50;

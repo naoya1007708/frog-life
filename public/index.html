@@ -36,6 +36,7 @@
     width: 100%; padding: 8px; background: #0c140d; border: 1px solid var(--border-color);
     border-radius: 4px; font-family: inherit; font-size: 12px; color: #fff; box-sizing: border-box; margin-top: 3px;
   }
+  option { background: #152217; color: #fff; }
 
   #game-screen, #result-screen { display: none; }
 
@@ -71,14 +72,13 @@
     border-color: var(--accent); background: #1a331c; box-shadow: inset 0 0 6px rgba(92,214,92,0.3);
   }
   .minimap-zone-title { font-weight: bold; font-size: 9px; color: #88bb88; display: flex; justify-content: space-between; }
-  .minimap-actors-count { font-size: 8px; color: #ffea77; }
+  .minimap-actors-count { font-size: 9px; font-weight: bold; color: #ffea77; }
 
   .actor-dot { font-size: 9px; padding: 1px 4px; border-radius: 2px; cursor: pointer; }
   .high-affinity {
     border: 2px solid var(--accent-pink) !important;
     color: #ffb3e6 !important;
     font-weight: bold;
-    box-shadow: 0 0 5px rgba(255, 102, 204, 0.5);
   }
 
   .status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 4px; }
@@ -144,12 +144,7 @@
   @media (orientation: landscape) and (max-height: 520px) {
     body { padding: 4px; }
     .app-frame { max-width: 98vw; }
-    #game-screen {
-      display: none;
-      grid-template-columns: 1.1fr 1fr;
-      gap: 8px;
-      align-items: start;
-    }
+    #game-screen { display: none; grid-template-columns: 1.1fr 1fr; gap: 8px; align-items: start; }
     .view-container { height: 210px; }
     .panel { padding: 6px 8px; }
     #log-box { height: 60px; }
@@ -585,6 +580,46 @@ const TRAITS_DATA = {
   }
 };
 
+const RULE_TEXTS = {
+  1: `<strong>【ゲームの目的と勝利条件】</strong><br>
+・プレイヤーは1つの卵塊から生まれた兄弟の1匹となり、過酷な池で生き延びます。<br>
+・全35ターン（約15〜20分 / 1T: 120秒）で池が凍結（冬眠）するか、最後の1匹で終了。<br>
+・<strong>最終スコア（適応度）計算式</strong>：<br>
+  (生存ターン × 100) ＋ (残した卵の数 × 50) ＋ <strong>(最終レベル × 150pt)</strong> ＋ 生存ボーナス(1500pt)<br>
+※成体になった後もレベルを上げるほどスコアが大幅に跳ね上がります！`,
+
+  2: `<strong>【ゾーンの危険度と天候システム】</strong><br>
+<strong>【ゾーンのハイリスク・ハイリターン】</strong><br>
+・<strong>⑤ 草むら</strong>：コオロギ等（EXP特大）。ただし水分が激減しヘビ潜伏。<br>
+・<strong>④ 水際</strong>：倒木シェルター（定員1匹）あり。水分消費小。<br>
+・<strong>③ 水面</strong>：アオサギの急襲デスゾーン。<br>
+・<strong>② 水中 / ① 水底</strong>：水分消費なし。安全だが藻類（EXP極小）。<br><br>
+<strong>【天候の影響（全5種類）】</strong><br>
+・🌧️ <strong>雨</strong>：草むらでも水分消費ゼロ！安全に陸地を探索できるボーナスタイム。<br>
+・☀️ <strong>快晴</strong>：草むらの水分消費1.5倍。油断すると数ターンで干からび死！<br>
+・☁️ <strong>曇り</strong>：標準の天候。計画的な水分補給が必要。<br>
+・🔥 <strong>日照り・酷暑</strong>：草むらの乾燥2倍、水際も乾燥！満腹度減少も加速するデスゲーム。<br>
+・⛈️ <strong>豪雨・嵐</strong>：水分消費ゼロ。水流で気力消費が増えるが、<strong>天敵が隠れて襲来しない安全な嵐</strong>！`,
+
+  3: `<strong>【親密度・協力申請・交配産卵数】</strong><br>
+・<strong>協力申請の受託確率</strong>：相手の性格・親密度・空腹度からリアルタイム計算され、申請枠に表示されます。<br>
+・<strong>親密度とピンク枠</strong>：協力や団子で親密度が40を超えると<strong>「ピンク枠💕」</strong>に変化！<br>
+・<strong>【親密度連動の産卵数テーブル】</strong>：<br>
+  ・親密度 0〜19 (初対面)：<strong>15 〜 20 個</strong><br>
+  ・親密度 20〜39 (顔見知り)：<strong>21 〜 30 個</strong><br>
+  ・親密度 40〜69 (親密💕)：<strong>31 〜 45 個</strong><br>
+  ・親密度 70〜100 (無二の親友)：<strong>46 〜 60 個！(超大量得点)</strong><br>
+普段から助け合ってきた親友と交配することが最大の勝利への近道です。`,
+
+  4: `<strong>【成長段階と残機制】</strong><br>
+・<strong>第1〜3段階 (オタマジャクシ期)</strong>：<br>
+  卵ストック（残機2機）あり。死亡しても水底から復活可能（レベル-1の出遅れ）。<br>
+・<strong>第4段階 (尾の吸収・変態期 / Lv.7〜)</strong>：<br>
+  <strong>残機が消滅し、完全な「永久死亡」へ切り替わります！</strong><br>
+・<strong>第6段階 (成体カエル / Lv.12〜)</strong>：<br>
+  求愛・繁殖が解禁！成体後もレベルは上限なく上がり続け、体長・体重が増加します。`
+};
+
 let ws = null;
 let currentRoomId = null;
 let myActorId = null;
@@ -689,37 +724,41 @@ function requestStartGame() {
 }
 
 function handleStateUpdate(state) {
-  if (state.status === "waiting") {
-    renderLobby(state);
-    return;
-  }
-
-  if (state.status === "playing" && !hasShownTraitModal) {
-    document.getElementById("lobby-screen").style.display = "none";
-    showTraitModal(state);
-    hasShownTraitModal = true;
-  }
-
-  if (state.status === "playing" && state.coopRequests && state.coopRequests[myActorId]) {
-    showCoopConfirmModal(state.coopRequests[myActorId]);
-  }
-
-  if (state.status === "playing" && state.turnSummaries && state.turnSummaries[myActorId]) {
-    const sum = state.turnSummaries[myActorId];
-    if (sum.turn > lastShownSummaryTurn && sum.turn > 1) {
-      showTurnSummaryModal(sum);
-      lastShownSummaryTurn = sum.turn;
+  try {
+    if (state.status === "waiting") {
+      renderLobby(state);
+      return;
     }
-  }
 
-  if (state.status === "finished" && state.ranking) {
-    document.getElementById("game-screen").style.display = "none";
-    document.getElementById("result-screen").style.display = "block";
-    renderResult(state);
-    return;
-  }
+    if (state.status === "playing" && !hasShownTraitModal) {
+      document.getElementById("lobby-screen").style.display = "none";
+      showTraitModal(state);
+      hasShownTraitModal = true;
+    }
 
-  renderGameUI(state);
+    if (state.status === "playing" && state.coopRequests && state.coopRequests[myActorId]) {
+      showCoopConfirmModal(state.coopRequests[myActorId]);
+    }
+
+    if (state.status === "playing" && state.turnSummaries && state.turnSummaries[myActorId]) {
+      const sum = state.turnSummaries[myActorId];
+      if (sum.turn > lastShownSummaryTurn && sum.turn > 1) {
+        showTurnSummaryModal(sum);
+        lastShownSummaryTurn = sum.turn;
+      }
+    }
+
+    if (state.status === "finished" && state.ranking) {
+      document.getElementById("game-screen").style.display = "none";
+      document.getElementById("result-screen").style.display = "block";
+      renderResult(state);
+      return;
+    }
+
+    renderGameUI(state);
+  } catch (err) {
+    console.error("handleStateUpdate error:", err);
+  }
 }
 
 function renderLobby(state) {
@@ -763,10 +802,16 @@ function showTraitModal(state) {
   document.getElementById("trait-modal").style.display = "flex";
 }
 
+// ★修正：モーダルを閉じた直後に、直ちにゲーム画面を表示＆初期化！
 function closeTraitModal() {
   document.getElementById("trait-modal").style.display = "none";
   const isLandscape = window.matchMedia("(orientation: landscape) and (max-height: 520px)").matches;
   document.getElementById("game-screen").style.display = isLandscape ? "grid" : "block";
+
+  if (lastState) {
+    lastRenderedTurn = -1; // 強制再描画
+    renderGameUI(lastState);
+  }
 }
 
 function showCoopConfirmModal(req) {
@@ -833,7 +878,7 @@ function openZoneActorsModal(zoneId) {
   const listEl = document.getElementById("zam-actors-list");
   listEl.innerHTML = "";
 
-  const here = Object.values(lastState.actors).filter(a => a.alive && a.zone === zoneId);
+  const here = Object.values(lastState.actors).filter(a => a.alive && parseInt(a.zone, 10) === zoneId);
   if (here.length === 0) {
     listEl.innerHTML = "<div style='color:#888; padding:8px;'>現在このエリアには誰もいません。</div>";
   } else {
@@ -874,9 +919,9 @@ function openTargetDetailModal(targetId) {
   document.getElementById("tdet-personality").innerText = target.isPlayer ? "プレイヤー" : target.personality;
 
   document.getElementById("tdet-level").innerText = `Lv.${target.level}`;
-  document.getElementById("tdet-stage").innerText = STAGE_NAMES[target.stage];
-  document.getElementById("tdet-len").innerText = target.length.toFixed(1);
-  document.getElementById("tdet-wt").innerText = target.weight.toFixed(1);
+  document.getElementById("tdet-stage").innerText = STAGE_NAMES[target.stage] || "成体";
+  document.getElementById("tdet-len").innerText = (target.length || 1.0).toFixed(1);
+  document.getElementById("tdet-wt").innerText = (target.weight || 0.5).toFixed(1);
 
   const aff = (me.affinity && me.affinity[target.id]) ? me.affinity[target.id] : 0;
   let statusTxt = "普通";
@@ -905,10 +950,10 @@ function showStatusDetailModal() {
 
   document.getElementById("det-trait").innerText = trait.name;
   document.getElementById("det-level").innerText = `Lv.${me.level}`;
-  document.getElementById("det-stage").innerText = STAGE_NAMES[me.stage];
-  document.getElementById("det-len").innerText = me.length.toFixed(1);
-  document.getElementById("det-wt").innerText = me.weight.toFixed(1);
-  document.getElementById("det-offspring").innerText = me.offspringCount;
+  document.getElementById("det-stage").innerText = STAGE_NAMES[me.stage] || "成体";
+  document.getElementById("det-len").innerText = (me.length || 1.0).toFixed(1);
+  document.getElementById("det-wt").innerText = (me.weight || 0.5).toFixed(1);
+  document.getElementById("det-offspring").innerText = me.offspringCount || 0;
   document.getElementById("det-trait-plus").innerText = trait.plus;
   document.getElementById("det-trait-minus").innerText = trait.minus;
 
@@ -922,98 +967,112 @@ function closeStatusDetailModal() {
   document.getElementById("status-detail-modal").style.display = "none";
 }
 
+function checkAffinityWith(targetId) {
+  openTargetDetailModal(targetId);
+}
+
+// 画面UIの安全更新
 function renderGameUI(state) {
-  const times = ["朝", "昼", "夕", "深夜"];
-  const tName = times[(state.turn - 1) % 4];
-  const dName = Math.floor((state.turn - 1) / 4) + 1;
+  try {
+    const times = ["朝", "昼", "夕", "深夜"];
+    const tName = times[(state.turn - 1) % 4];
+    const dName = Math.floor((state.turn - 1) / 4) + 1;
 
-  document.getElementById("txt-turn").innerText = `TURN ${state.turn} (${tName} / ${dName}日目)`;
-  document.getElementById("txt-timer").innerText = `${state.timeLeft}秒`;
+    document.getElementById("txt-turn").innerText = `TURN ${state.turn} (${tName} / ${dName}日目)`;
+    document.getElementById("txt-timer").innerText = `${state.timeLeft}秒`;
 
-  const wIcons = { "快晴": "☀️ 快晴", "曇り": "☁️ 曇り", "雨": "🌧️ 雨", "日照り": "🔥 日照り", "豪雨": "⛈️ 豪雨" };
-  document.getElementById("txt-weather").innerText = `${wIcons[state.weather] || state.weather} (次T: ${wIcons[state.forecast] || state.forecast})`;
+    const wIcons = { "快晴": "☀️ 快晴", "曇り": "☁️ 曇り", "雨": "🌧️ 雨", "日照り": "🔥 日照り", "豪雨": "⛈️ 豪雨" };
+    document.getElementById("txt-weather").innerText = `${wIcons[state.weather] || state.weather} (次T: ${wIcons[state.forecast] || state.forecast})`;
 
-  const aliveList = Object.values(state.actors).filter(a => a.alive);
-  document.getElementById("txt-alive").innerText = `生存: ${aliveList.length}/25匹`;
+    const aliveList = Object.values(state.actors).filter(a => a.alive);
+    document.getElementById("txt-alive").innerText = `生存: ${aliveList.length}/25匹`;
 
-  const alertEl = document.getElementById("txt-alert");
-  if (state.nextPredator === "yago") alertEl.innerText = "⚠ 予兆: 水底の泥が巻き上がっている……！(ヤゴ接近)";
-  else if (state.nextPredator === "heron") alertEl.innerText = "⚠ 予兆: 上空を大きな鳥の影が横切った！(サギ警戒)";
-  else alertEl.innerText = "気配: 周囲に目立った危険はない。";
+    const alertEl = document.getElementById("txt-alert");
+    if (state.nextPredator === "yago") alertEl.innerText = "⚠ 予兆: 水底の泥が巻き上がっている……！(ヤゴ接近)";
+    else if (state.nextPredator === "heron") alertEl.innerText = "⚠ 予兆: 上空を大きな鳥の影が横切った！(サギ警戒)";
+    else alertEl.innerText = "気配: 周囲に目立った危険はない。";
 
-  if (state.activePredatorAnimation === "heron") heronAttackY = -40;
-  if (state.activePredatorAnimation === "yago") yagoJawX = 0;
+    if (state.activePredatorAnimation === "heron") heronAttackY = -40;
+    if (state.activePredatorAnimation === "yago") yagoJawX = 0;
 
-  const me = state.actors[myActorId];
-  if (me) {
-    document.getElementById("txt-level-badge").innerText = `Lv.${me.level}`;
-    document.getElementById("txt-stage-name").innerText = STAGE_NAMES[me.stage];
-    document.getElementById("txt-gender-icon").innerText = me.gender;
-    document.getElementById("txt-gender-icon").style.color = me.gender === "♂" ? "#7ec5f5" : "#f57eb8";
+    const me = state.actors[myActorId];
+    if (me) {
+      document.getElementById("txt-level-badge").innerText = `Lv.${me.level}`;
+      document.getElementById("txt-stage-name").innerText = STAGE_NAMES[me.stage] || "成体";
+      document.getElementById("txt-gender-icon").innerText = me.gender;
+      document.getElementById("txt-gender-icon").style.color = me.gender === "♂" ? "#7ec5f5" : "#f57eb8";
 
-    document.getElementById("txt-len").innerText = me.length.toFixed(1);
-    document.getElementById("txt-wt").innerText = me.weight.toFixed(1);
+      document.getElementById("txt-len").innerText = (me.length || 1.0).toFixed(1);
+      document.getElementById("txt-wt").innerText = (me.weight || 0.5).toFixed(1);
 
-    const nextReq = 10 + (me.level * 6);
-    const expPct = Math.min(100, Math.round((me.exp / nextReq) * 100));
-    document.getElementById("bar-exp").style.width = expPct + "%";
-    document.getElementById("txt-exp-val").innerText = `${me.exp} / ${nextReq} EXP (${expPct}%)`;
+      const nextReq = 10 + (me.level * 6);
+      const expPct = Math.min(100, Math.round(((me.exp || 0) / nextReq) * 100));
+      document.getElementById("bar-exp").style.width = expPct + "%";
+      document.getElementById("txt-exp-val").innerText = `${me.exp || 0} / ${nextReq} EXP (${expPct}%)`;
 
-    document.getElementById("txt-eggs").innerText = me.stage < 4 ? "🥚".repeat(me.eggs) || "なし" : "なし (永久死亡)";
-    document.getElementById("txt-offspring").innerText = me.offspringCount;
+      document.getElementById("txt-eggs").innerText = me.stage < 4 ? "🥚".repeat(me.eggs) || "なし" : "なし (永久死亡)";
+      document.getElementById("txt-offspring").innerText = me.offspringCount || 0;
 
-    document.getElementById("val-hp").innerText = Math.round(me.hp);
-    document.getElementById("val-food").innerText = Math.round(me.food);
-    document.getElementById("val-water").innerText = Math.round(me.water);
-    document.getElementById("val-sta").innerText = Math.round(me.stamina);
+      document.getElementById("val-hp").innerText = Math.round(me.hp);
+      document.getElementById("val-food").innerText = Math.round(me.food);
+      document.getElementById("val-water").innerText = Math.round(me.water);
+      document.getElementById("val-sta").innerText = Math.round(me.stamina);
 
-    if (lastRenderedTurn !== state.turn) {
-      updateMoveSelect(me.stage, me.zone);
-      onMoveSelectChange();
+      const myZoneSafe = (me.zone !== undefined && me.zone !== null) ? parseInt(me.zone, 10) : 1;
+
+      // セレクトボックスが空なら確実に再初期化する
+      const moveSel = document.getElementById("move-sel");
+      if (lastRenderedTurn !== state.turn || moveSel.options.length === 0) {
+        updateMoveSelect(me.stage || 1, myZoneSafe);
+        onMoveSelectChange();
+      }
+
+      const btn = document.getElementById("submit-btn");
+      if (!me.alive) {
+        btn.disabled = true;
+        btn.innerText = "💀 死亡退場（観戦中...）";
+      } else if (me.ready) {
+        btn.disabled = true;
+        btn.innerText = "他のカエルを待機中...";
+      } else {
+        btn.disabled = false;
+        btn.innerText = "この行動で確定する ✔";
+      }
+
+      renderMinimap(state, myZoneSafe);
     }
 
-    const btn = document.getElementById("submit-btn");
-    if (!me.alive) {
-      btn.disabled = true;
-      btn.innerText = "💀 死亡退場（観戦中...）";
-    } else if (me.ready) {
-      btn.disabled = true;
-      btn.innerText = "他のカエルを待機中...";
-    } else {
-      btn.disabled = false;
-      btn.innerText = "この行動で確定する ✔";
+    renderAreaEventCard(state, me);
+    lastRenderedTurn = state.turn;
+
+    const pListEl = document.getElementById("player-list");
+    pListEl.innerHTML = "";
+    for (const act of Object.values(state.actors).filter(a => a.isPlayer)) {
+      const isMe = (act.id === myActorId);
+      const aff = (me && me.affinity && me.affinity[act.id]) ? me.affinity[act.id] : 0;
+      const isPink = (!isMe && aff >= 40);
+
+      const badge = document.createElement("div");
+      badge.className = `p-badge ${act.ready ? 'p-ready' : ''} ${isPink ? 'high-affinity' : ''}`;
+      badge.innerText = `Lv.${act.level} ${isMe ? '🐸あなた' : act.name}(${act.gender}) [${!act.alive ? '💀' : (act.ready ? '✔' : '💭')}]`;
+      if (!isMe) badge.onclick = () => openTargetDetailModal(act.id);
+      pListEl.appendChild(badge);
     }
 
-    renderMinimap(state, me.zone);
-  }
-
-  renderAreaEventCard(state, me);
-  lastRenderedTurn = state.turn;
-
-  const pListEl = document.getElementById("player-list");
-  pListEl.innerHTML = "";
-  for (const act of Object.values(state.actors).filter(a => a.isPlayer)) {
-    const isMe = (act.id === myActorId);
-    const aff = (me && me.affinity && me.affinity[act.id]) ? me.affinity[act.id] : 0;
-    const isPink = (!isMe && aff >= 40);
-
-    const badge = document.createElement("div");
-    badge.className = `p-badge ${act.ready ? 'p-ready' : ''} ${isPink ? 'high-affinity' : ''}`;
-    badge.innerText = `Lv.${act.level} ${isMe ? '🐸あなた' : act.name}(${act.gender}) [${!act.alive ? '💀' : (act.ready ? '✔' : '💭')}]`;
-    if (!isMe) badge.onclick = () => openTargetDetailModal(act.id);
-    pListEl.appendChild(badge);
-  }
-
-  if (state.logs && state.logs.length > 0) {
-    const box = document.getElementById("log-box");
-    state.logs.forEach(l => {
-      const p = document.createElement("div");
-      p.innerText = l;
-      box.prepend(p);
-    });
+    if (state.logs && state.logs.length > 0) {
+      const box = document.getElementById("log-box");
+      state.logs.forEach(l => {
+        const p = document.createElement("div");
+        p.innerText = l;
+        box.prepend(p);
+      });
+    }
+  } catch (err) {
+    console.error("renderGameUI error:", err);
   }
 }
 
+// ミニマップの安全集計
 function renderMinimap(state, myCurrentZone) {
   for (let z = 0; z < 5; z++) {
     const zoneBox = document.getElementById(`mm-z-${z}`);
@@ -1022,32 +1081,36 @@ function renderMinimap(state, myCurrentZone) {
     if (z === myCurrentZone) zoneBox.classList.add("active-zone");
     else zoneBox.classList.remove("active-zone");
 
-    const here = Object.values(state.actors).filter(a => a.alive && a.zone === z);
+    const here = Object.values(state.actors).filter(a => a.alive && parseInt(a.zone, 10) === z);
     cntEl.innerText = `${here.length}匹`;
   }
 }
 
+// 移動セレクトボックスの確実な生成
 function updateMoveSelect(myStage, currentZone) {
   const sel = document.getElementById("move-sel");
   const previousVal = sel.value;
   sel.innerHTML = "";
 
-  [currentZone - 1, currentZone, currentZone + 1].forEach(z => {
+  const cZone = parseInt(currentZone, 10);
+  const candidates = [cZone - 1, cZone, cZone + 1];
+
+  candidates.forEach(z => {
     if (z >= 0 && z < 5) {
       const opt = document.createElement("option");
       opt.value = z;
       const minStage = [1, 1, 3, 4, 5][z];
       const disabled = myStage < minStage;
-      opt.innerText = (z === currentZone ? "【現在地】" : "➔ ") + ZONE_NAMES[z] + (disabled ? " (成長不足)" : "");
+      opt.innerText = (z === cZone ? "【現在地】" : "➔ ") + ZONE_NAMES[z] + (disabled ? " (成長不足)" : "");
       opt.disabled = disabled;
       sel.appendChild(opt);
     }
   });
 
-  if (previousVal && !sel.querySelector(`option[value="${previousVal}"]`)?.disabled) {
+  if (previousVal !== "" && sel.querySelector(`option[value="${previousVal}"]`) && !sel.querySelector(`option[value="${previousVal}"]`).disabled) {
     sel.value = previousVal;
   } else {
-    sel.value = currentZone;
+    sel.value = cZone;
   }
 }
 
@@ -1110,16 +1173,19 @@ function onCoopFeedToggle() {
   }
 }
 
+// 獲物セレクトボックスの確実な初期化
 function updatePreyOptions() {
   if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
   const me = lastState.actors[myActorId];
-  const targetZone = parseInt(document.getElementById("move-sel").value);
+  let targetZone = parseInt(document.getElementById("move-sel").value, 10);
+  if (isNaN(targetZone)) targetZone = parseInt(me.zone, 10) || 1;
+
   const preyList = PREY_MASTER[targetZone] || [];
   const sel = document.getElementById("feed-target-sel");
   const prev = sel.value;
   sel.innerHTML = "";
 
-  const myPower = (me.length * 5) + (me.weight * 3) + (me.stamina * 0.2);
+  const myPower = ((me.length || 1) * 5) + ((me.weight || 0.5) * 3) + ((me.stamina || 100) * 0.2);
 
   preyList.forEach(p => {
     let chance = Math.round(60 + (myPower - p.diff) * 2);
@@ -1132,7 +1198,11 @@ function updatePreyOptions() {
     sel.appendChild(opt);
   });
 
-  if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
+  if (prev && sel.querySelector(`option[value="${prev}"]`)) {
+    sel.value = prev;
+  } else if (sel.options.length > 0) {
+    sel.selectedIndex = 0;
+  }
   checkLargePrey();
 }
 
@@ -1140,12 +1210,14 @@ function updateActorTargetOptions() {
   if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
   const me = lastState.actors[myActorId];
   const act = document.getElementById("act-sel").value;
-  const targetZone = parseInt(document.getElementById("move-sel").value);
+  let targetZone = parseInt(document.getElementById("move-sel").value, 10);
+  if (isNaN(targetZone)) targetZone = parseInt(me.zone, 10) || 1;
+
   const sel = document.getElementById("actor-target-sel");
   const prev = sel.value;
   sel.innerHTML = "";
 
-  let candidates = Object.values(lastState.actors).filter(a => a.alive && a.id !== me.id && a.zone === targetZone);
+  let candidates = Object.values(lastState.actors).filter(a => a.alive && a.id !== me.id && parseInt(a.zone, 10) === targetZone);
   if (act === "mate") {
     candidates = candidates.filter(a => a.stage >= 6 && a.gender !== me.gender);
   }
@@ -1169,7 +1241,6 @@ function updateActorTargetOptions() {
   updateCoopChanceDisplay();
 }
 
-// ★NPC協力受諾確率（%）の計算＆リアルタイム表示
 function updateCoopChanceDisplay() {
   const badge = document.getElementById("coop-chance-badge");
   badge.innerText = "";
@@ -1191,7 +1262,6 @@ function updateCoopChanceDisplay() {
     return;
   }
 
-  // NPC受諾確率計算
   const aff = (me.affinity && me.affinity[target.id]) ? me.affinity[target.id] : 0;
   let baseChance = 35;
   if (target.personality === "温厚") baseChance = 50;
@@ -1211,22 +1281,26 @@ function updateCoopChanceDisplay() {
   badge.style.color = chance >= 70 ? "#77ff77" : (chance >= 40 ? "#ffff77" : "#ff7777");
 }
 
+// エリアイベントの確実な初期化
 function renderAreaEventCard(state, me) {
   if (!me) return;
-  const ev = (state.eventsByZone && state.eventsByZone[me.zone]) ? state.eventsByZone[me.zone] : null;
+  const myZ = parseInt(me.zone, 10) || 1;
+  const ev = (state.eventsByZone && state.eventsByZone[myZ]) ? state.eventsByZone[myZ] : null;
   const box = document.getElementById("event-card-box");
   const sel = document.getElementById("ev-choice-sel");
   const partnerBadge = document.getElementById("ev-partner-badge");
 
   if (!ev) {
-    box.style.display = "none";
-    lastRenderedEventId = null;
+    document.getElementById("ev-title").innerText = "【平穏】";
+    document.getElementById("ev-desc").innerText = "周囲に特別な事件は起きていない。静かに時間が流れている。";
+    sel.innerHTML = "<option value='none'>通常通り行動する</option>";
+    partnerBadge.style.display = "none";
     return;
   }
 
   box.style.display = "block";
-  document.getElementById("ev-title").innerText = ev.title;
-  document.getElementById("ev-desc").innerText = ev.desc;
+  document.getElementById("ev-title").innerText = ev.title || "【イベント】";
+  document.getElementById("ev-desc").innerText = ev.desc || "";
 
   if (ev.type === "pair" && state.pairTargets && state.pairTargets[myActorId]) {
     const pId = state.pairTargets[myActorId];
@@ -1242,20 +1316,29 @@ function renderAreaEventCard(state, me) {
   }
 
   const eventUniqueKey = `${state.turn}_${ev.id}`;
-  if (lastRenderedEventId !== eventUniqueKey) {
+  if (lastRenderedEventId !== eventUniqueKey || sel.options.length === 0) {
     lastRenderedEventId = eventUniqueKey;
     sel.innerHTML = "";
-    ev.choices.forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c.id;
-      opt.innerText = c.text;
-      sel.appendChild(opt);
-    });
+    if (ev.choices && ev.choices.length > 0) {
+      ev.choices.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.innerText = c.text;
+        sel.appendChild(opt);
+      });
+    } else {
+      sel.innerHTML = "<option value='none'>見守る</option>";
+    }
   }
 }
 
 function sendAction() {
-  const moveZone = parseInt(document.getElementById("move-sel").value);
+  let moveZone = parseInt(document.getElementById("move-sel").value, 10);
+  if (isNaN(moveZone)) {
+    const me = (lastState && lastState.actors) ? lastState.actors[myActorId] : null;
+    moveZone = me ? parseInt(me.zone, 10) : 1;
+  }
+
   const act = document.getElementById("act-sel").value;
   const targetPreyId = document.getElementById("feed-target-sel").value;
   const targetId = document.getElementById("actor-target-sel").value;
@@ -1337,8 +1420,8 @@ function updateAnim() {
 
 function renderScene(ctx) {
   const me = (lastState && lastState.actors) ? lastState.actors[myActorId] : null;
-  const myZone = me ? me.zone : 1;
-  const myStage = me ? me.stage : 1;
+  const myZone = me ? (parseInt(me.zone, 10) || 1) : 1;
+  const myStage = me ? (parseInt(me.stage, 10) || 1) : 1;
 
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, 130, 150);
@@ -1399,7 +1482,7 @@ function renderScene(ctx) {
 }
 
 function drawMyFrog(ctx, x, y, st, z) {
-  const pal = FROG_PALETTES[z];
+  const pal = FROG_PALETTES[z] || FROG_PALETTES[1];
   ctx.save();
   ctx.translate(x, y);
 
