@@ -12,7 +12,7 @@
     --text-color: #d2e8d4;
     --accent: #5cd65c;
     --accent-gold: #f0c040;
-    --accent-pink: #ff66cc; /* 親密度ピンク */
+    --accent-pink: #ff66cc;
     --danger: #ff5555;
   }
   body {
@@ -39,7 +39,6 @@
 
   #game-screen, #result-screen { display: none; }
 
-  /* 待機ロビー */
   .room-tag {
     display: inline-block; background: #1b2e1e; border: 2px dashed var(--accent);
     color: var(--accent); font-size: 24px; font-weight: bold; padding: 6px 20px;
@@ -50,7 +49,7 @@
     display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 4px;
   }
 
-  /* 左：自分画面 ＋ 右：全体図 */
+  /* 画面構成 */
   .view-container { display: flex; gap: 6px; width: 100%; height: 240px; }
   .screen-frame {
     flex: 1.8; background: #000; border-radius: 6px; overflow: hidden;
@@ -58,29 +57,29 @@
   }
   canvas#retroCanvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
 
+  /* ミニマップ（タップ可能） */
   .minimap-panel {
     flex: 1.2; background: #0d170e; border: 2px solid var(--border-color);
     border-radius: 6px; padding: 4px; display: flex; flex-direction: column; justify-content: space-between;
     box-sizing: border-box; font-size: 10px;
   }
   .minimap-zone {
-    border-radius: 3px; padding: 2px 4px; border: 1px solid #1f3022;
+    border-radius: 3px; padding: 3px 5px; border: 1px solid #1f3022;
     background: #142115; min-height: 38px; display: flex; flex-direction: column; justify-content: space-between;
+    cursor: pointer; transition: 0.15s;
   }
+  .minimap-zone:hover { background: #1f3622; border-color: #3d6e42; }
   .minimap-zone.active-zone {
     border-color: var(--accent); background: #1a331c; box-shadow: inset 0 0 6px rgba(92,214,92,0.3);
   }
-  .minimap-zone-title { font-weight: bold; font-size: 9px; color: #88bb88; }
-  .minimap-actors { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 1px; }
+  .minimap-zone-title { font-weight: bold; font-size: 9px; color: #88bb88; display: flex; justify-content: space-between; }
+  .minimap-actors-count { font-size: 8px; color: #ffea77; }
 
   /* アクターバッジと親密度ピンク枠 */
-  .actor-dot {
-    font-size: 9px; padding: 1px 4px; border-radius: 2px; cursor: pointer;
-  }
+  .actor-dot { font-size: 9px; padding: 1px 4px; border-radius: 2px; cursor: pointer; }
   .dot-me { background: #2f7a35; color: #fff; font-weight: bold; border: 1px solid #77dd77; }
   .dot-pl { background: #1e455c; color: #aaddff; border: 1px solid #4da6ff; }
   .dot-npc { background: #222; color: #888; border: 1px solid #444; }
-  /* ★親密度が高いカエル（ピンク枠！） */
   .high-affinity {
     border: 2px solid var(--accent-pink) !important;
     color: #ffb3e6 !important;
@@ -99,7 +98,7 @@
 
   #log-box { height: 80px; overflow-y: scroll; font-size: 10px; line-height: 1.4; background: #0a110c; padding: 6px; border-radius: 4px; margin-top: 4px; }
 
-  /* モーダル */
+  /* モーダル共通スタイル */
   .modal-overlay {
     display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(3, 7, 4, 0.95); z-index: 9999; justify-content: center; align-items: center;
@@ -107,26 +106,38 @@
   }
   .modal-card {
     background: #18291c; border: 2px solid var(--accent); border-radius: 8px;
-    padding: 18px 16px; width: 100%; max-width: 380px; box-sizing: border-box; text-align: center;
+    padding: 16px; width: 100%; max-width: 400px; box-sizing: border-box; text-align: center;
     box-shadow: 0 0 30px rgba(92, 214, 92, 0.3); margin: auto;
   }
   .trait-badge-large {
     display: inline-block; background: #233b28; border: 2px solid var(--accent-gold);
-    color: var(--accent-gold); font-size: 17px; font-weight: bold; padding: 6px 16px;
-    border-radius: 6px; letter-spacing: 2px; margin: 8px 0;
+    color: var(--accent-gold); font-size: 16px; font-weight: bold; padding: 5px 14px;
+    border-radius: 6px; letter-spacing: 2px; margin: 6px 0;
   }
   .gender-badge {
-    display: inline-block; font-size: 13px; font-weight: bold; padding: 3px 10px; border-radius: 4px; margin-top: 4px;
+    display: inline-block; font-size: 13px; font-weight: bold; padding: 3px 10px; border-radius: 4px;
   }
   .gender-male { background: #19405c; color: #7ec5f5; border: 1px solid #4ea3dd; }
   .gender-female { background: #5c1938; color: #f57eb8; border: 1px solid #dd4e97; }
 
   .effect-box {
     background: #0d170f; border: 1px solid #29402c; border-radius: 6px;
-    padding: 10px; text-align: left; font-size: 11px; line-height: 1.7; margin: 10px 0;
+    padding: 10px; text-align: left; font-size: 11px; line-height: 1.7; margin: 8px 0;
   }
   .plus-text { color: #88ff88; font-weight: bold; }
   .minus-text { color: #ff8888; font-weight: bold; }
+
+  /* ルールブック用タブスタイル */
+  .rule-tab-bar { display: flex; gap: 4px; margin-bottom: 8px; }
+  .rule-tab-btn {
+    flex: 1; padding: 6px 2px; font-size: 10px; background: #142115; border: 1px solid #2c422f;
+    color: #a0c4a4; cursor: pointer; border-radius: 3px; font-family: inherit;
+  }
+  .rule-tab-btn.active { background: #2f6e36; color: #fff; font-weight: bold; border-color: var(--accent); }
+  .rule-content-box {
+    background: #0d170f; border: 1px solid #29402c; border-radius: 6px;
+    padding: 10px; font-size: 11px; line-height: 1.6; text-align: left; max-height: 260px; overflow-y: scroll;
+  }
 
   .rank-row { display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #2e4531; font-size: 11px; }
   .history-box { background: #0d170f; padding: 8px; font-size: 11px; line-height: 1.5; border-radius: 4px; max-height: 150px; overflow-y: scroll; margin-top: 6px; text-align: left; }
@@ -140,9 +151,14 @@
   <div id="lobby-screen" class="panel">
     <div style="text-align:center;">
       <h2 style="color:var(--accent); margin:0 0 2px 0;">🐸 FROG LIFE</h2>
-      <div style="font-size:11px; color:#aaa; margin-bottom:10px;">ターン制 生態系サバイバル（全35ターン）</div>
+      <div style="font-size:11px; color:#aaa; margin-bottom:6px;">ターン制 生態系サバイバル（全35ターン / 1T: 2分）</div>
+      <!-- ★ロビーのルールブックボタン -->
+      <button class="secondary" style="padding:6px; font-size:11px; margin-bottom:10px; border-color:var(--accent-gold); color:var(--accent-gold);" onclick="openRulebookModal()">
+        📖 遊び方・ルールブックを開く
+      </button>
     </div>
 
+    <!-- 入室前 -->
     <div id="lobby-join-area">
       <label style="font-size:11px;">あなたの名前:</label>
       <input type="text" id="user-name" value="アマガエル" maxlength="8">
@@ -155,6 +171,7 @@
       </div>
     </div>
 
+    <!-- 入室後（待機ロビー） -->
     <div id="lobby-wait-area" style="display:none; text-align:center;">
       <div class="room-tag" id="wait-room-tag">ROOM #----</div>
       <div style="font-size:11px; color:#aaa; margin-bottom:8px;">全員が集まるまで待機しています</div>
@@ -208,6 +225,71 @@
   </div>
 
 
+  <!-- ================= ★ ターン解決サマリーモーダル（新設） ================= -->
+  <div id="turn-summary-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div style="font-size:11px; color:var(--accent-gold); font-weight:bold;" id="sum-turn-title">【 TURN 1 生存結果 】</div>
+      <div style="font-size:14px; font-weight:bold; color:#fff; margin-bottom:8px;">あなたの身に起こったこと</div>
+
+      <div class="effect-box">
+        <div style="font-weight:bold; color:var(--accent);">🦗 行動結果:</div>
+        <div id="sum-action-txt" style="margin-bottom:6px; padding-left:6px;">---</div>
+
+        <div style="font-weight:bold; color:var(--accent-gold);">⚡ イベント結果:</div>
+        <div id="sum-event-txt" style="margin-bottom:6px; padding-left:6px;">---</div>
+
+        <div style="font-weight:bold; color:#88ddff;">💧 代謝・環境変化:</div>
+        <div id="sum-meta-txt" style="margin-bottom:6px; padding-left:6px;">---</div>
+
+        <div id="sum-danger-box" style="display:none; color:var(--danger); font-weight:bold;">
+          🚨 天敵被害: <span id="sum-danger-txt">---</span>
+        </div>
+
+        <div id="sum-growth-box" style="display:none; color:#aaffaa; font-weight:bold; margin-top:4px;">
+          🎉 成長・変態: <span id="sum-growth-txt">---</span>
+        </div>
+      </div>
+
+      <button class="primary" onclick="closeTurnSummaryModal()">次のターンへ ➔</button>
+    </div>
+  </div>
+
+
+  <!-- ================= ★ ルールブックモーダル（新設） ================= -->
+  <div id="rulebook-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width:420px;">
+      <div style="font-size:14px; font-weight:bold; color:var(--accent-gold); margin-bottom:8px;">
+        📖 FROG LIFE - 生存手引書 (ルール)
+      </div>
+
+      <!-- タブ切り替えバー -->
+      <div class="rule-tab-bar">
+        <button class="rule-tab-btn active" onclick="switchRuleTab(1)" id="rtab-1">①勝利</button>
+        <button class="rule-tab-btn" onclick="switchRuleTab(2)" id="rtab-2">②ゾーン</button>
+        <button class="rule-tab-btn" onclick="switchRuleTab(3)" id="rtab-3">③心理戦</button>
+        <button class="rule-tab-btn" onclick="switchRuleTab(4)" id="rtab-4">④成長・残機</button>
+      </div>
+
+      <div class="rule-content-box" id="rule-content"></div>
+
+      <button class="secondary" style="margin-top:10px;" onclick="closeRulebookModal()">閉じる</button>
+    </div>
+  </div>
+
+
+  <!-- ================= ★ エリア内カエル一覧モーダル（新設） ================= -->
+  <div id="zone-actors-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div style="font-size:13px; font-weight:bold; color:var(--accent);" id="zam-zone-title">⑤ 草むら・陸地にいるカエル</div>
+      <div style="font-size:10px; color:#aaa; margin-bottom:8px;">名前をタップすると親密度が確認できます</div>
+
+      <div id="zam-actors-list" style="max-height:200px; overflow-y:scroll; text-align:left;"></div>
+
+      <button class="secondary" style="margin-top:10px;" onclick="closeZoneActorsModal()">閉じる</button>
+    </div>
+  </div>
+
+
   <!-- ================= 詳細ステータス確認モーダル ================= -->
   <div id="status-detail-modal" class="modal-overlay">
     <div class="modal-card">
@@ -238,12 +320,16 @@
   <!-- ================= 画面2：ゲーム本編 ================= -->
   <div id="game-screen">
     <div class="panel" style="padding:6px 10px;">
-      <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:11px;">
-        <span id="txt-room-id" style="color:var(--accent);">池: #----</span>
-        <span id="txt-turn">TURN 1</span>
-        <span id="txt-timer" style="color:#ffaa66;">45秒</span>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span id="txt-room-id" style="color:var(--accent); font-weight:bold; font-size:11px;">池: #----</span>
+        <span id="txt-turn" style="font-weight:bold; font-size:11px;">TURN 1</span>
+        <span id="txt-timer" style="color:#ffaa66; font-weight:bold; font-size:12px;">120秒</span>
+        <!-- ★対戦中のルールブックボタン -->
+        <button class="secondary" style="width:auto; padding:3px 8px; font-size:10px; border-color:var(--accent-gold); color:var(--accent-gold);" onclick="openRulebookModal()">
+          📖 ルール
+        </button>
       </div>
-      <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:2px;">
+      <div style="display:flex; justify-content:space-between; font-size:10px; margin-top:3px;">
         <span id="txt-weather">☀️ 快晴</span>
         <span id="txt-alive">生存: 25/25匹</span>
       </div>
@@ -252,18 +338,33 @@
       </div>
     </div>
 
-    <!-- 左：自分の画面 ＋ 右：全体図 -->
+    <!-- 左：自分の画面 ＋ 右：全体図（タップで一覧表示！） -->
     <div class="view-container">
       <div class="screen-frame">
         <canvas id="retroCanvas" width="130" height="150"></canvas>
       </div>
 
       <div class="minimap-panel" id="minimap-box">
-        <div class="minimap-zone" id="mm-z-4"><div class="minimap-zone-title">⑤ 草むら</div><div class="minimap-actors" id="mm-actors-4"></div></div>
-        <div class="minimap-zone" id="mm-z-3"><div class="minimap-zone-title">④ 水際(倒木)</div><div class="minimap-actors" id="mm-actors-3"></div></div>
-        <div class="minimap-zone" id="mm-z-2"><div class="minimap-zone-title">③ 水面・浅瀬</div><div class="minimap-actors" id="mm-actors-2"></div></div>
-        <div class="minimap-zone" id="mm-z-1"><div class="minimap-zone-title">② 水中(水草)</div><div class="minimap-actors" id="mm-actors-1"></div></div>
-        <div class="minimap-zone" id="mm-z-0"><div class="minimap-zone-title">① 水底・泥地</div><div class="minimap-actors" id="mm-actors-0"></div></div>
+        <div class="minimap-zone" id="mm-z-4" onclick="openZoneActorsModal(4)">
+          <div class="minimap-zone-title"><span>⑤ 草むら</span><span class="minimap-actors-count" id="mm-cnt-4">0匹</span></div>
+          <div style="font-size:8px; color:#aaa;">タップで一覧</div>
+        </div>
+        <div class="minimap-zone" id="mm-z-3" onclick="openZoneActorsModal(3)">
+          <div class="minimap-zone-title"><span>④ 水際(倒木)</span><span class="minimap-actors-count" id="mm-cnt-3">0匹</span></div>
+          <div style="font-size:8px; color:#aaa;">タップで一覧</div>
+        </div>
+        <div class="minimap-zone" id="mm-z-2" onclick="openZoneActorsModal(2)">
+          <div class="minimap-zone-title"><span>③ 水面・浅瀬</span><span class="minimap-actors-count" id="mm-cnt-2">0匹</span></div>
+          <div style="font-size:8px; color:#aaa;">タップで一覧</div>
+        </div>
+        <div class="minimap-zone" id="mm-z-1" onclick="openZoneActorsModal(1)">
+          <div class="minimap-zone-title"><span>② 水中(水草)</span><span class="minimap-actors-count" id="mm-cnt-1">0匹</span></div>
+          <div style="font-size:8px; color:#aaa;">タップで一覧</div>
+        </div>
+        <div class="minimap-zone" id="mm-z-0" onclick="openZoneActorsModal(0)">
+          <div class="minimap-zone-title"><span>① 水底・泥地</span><span class="minimap-actors-count" id="mm-cnt-0">0匹</span></div>
+          <div style="font-size:8px; color:#aaa;">タップで一覧</div>
+        </div>
       </div>
     </div>
 
@@ -290,7 +391,7 @@
       </div>
     </div>
 
-    <!-- ★エリア対応イベントカード -->
+    <!-- エリア対応イベントカード -->
     <div class="event-card" id="event-card-box">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <strong id="ev-title" style="color:var(--accent-gold);">【エリアイベント】</strong>
@@ -302,7 +403,7 @@
       <select id="ev-choice-sel" style="margin-top:6px;"></select>
     </div>
 
-    <!-- ★完全復活：行動入力パネル（捕食餌選択・水を飲む・カエル団子・攻撃・見張り・求愛） -->
+    <!-- 行動入力パネル -->
     <div class="panel">
       <div style="display:flex; gap:6px;">
         <div style="flex:1;">
@@ -323,13 +424,13 @@
         </div>
       </div>
 
-      <!-- ① 捕食選択時：エリアの餌リスト ＆ リアルタイム捕食成功確率(%)表示 -->
+      <!-- ① 捕食選択時：リアルタイム捕食成功確率(%)付き餌リスト -->
       <div id="feed-target-box" style="margin-top:6px; background:#18261a; padding:6px; border-radius:4px; border:1px dashed var(--accent);">
         <label style="font-size:10px; color:var(--accent); font-weight:bold;">🦗 狙う獲物を選択 (捕食成功率):</label>
         <select id="feed-target-sel"></select>
       </div>
 
-      <!-- ② 相手指名時：カエル団子／攻撃／求愛の相手選択 -->
+      <!-- ② カエル団子／攻撃／求愛の相手指名リスト -->
       <div id="actor-target-box" style="display:none; margin-top:6px; background:#1c241d; padding:6px; border-radius:4px; border:1px dashed var(--accent-gold);">
         <label style="font-size:10px; color:var(--accent-gold); font-weight:bold;" id="actor-target-label">🤝 対象のカエルを指名:</label>
         <select id="actor-target-sel"></select>
@@ -422,6 +523,38 @@ const TRAITS_DATA = {
   }
 };
 
+// ルールブックの各タブテキスト
+const RULE_TEXTS = {
+  1: `<strong>【ゲームの目的と勝利条件】</strong><br>
+・プレイヤーは1つの卵塊から生まれた兄弟の1匹となり、過酷な池で生き延びます。<br>
+・全35ターン（約15〜20分）で池が凍結（冬眠）するか、最後の1匹で終了。<br>
+・<strong>最終スコア（適応度）</strong>：<br>
+  (生存ターン × 100) ＋ (残した卵の数 × 50) ＋ 最終生存ボーナス(1500pt)<br>
+※ただ隠れて延命するだけでなく、繁殖で子孫を残した個体が最高評価となります。`,
+
+  2: `<strong>【ゾーンの危険度と餌の経験値】</strong><br>
+・<strong>⑤ 草むら・陸地</strong>：コオロギ等（EXP特大）。ただし水分が急速に減り、ヘビに襲われる危険地帯。<br>
+・<strong>④ 水際・湿地</strong>：倒木シェルター（定員1匹）あり。水分消費小。<br>
+・<strong>③ 水面・浅瀬</strong>：アオサギの急襲デスゾーン。<br>
+・<strong>② 水中(水草)</strong>：オタマの主戦場。水分消費なし（全快）。<br>
+・<strong>① 水底・泥地</strong>：最も安全だがヤゴ潜伏。藻類（EXP極小）。<br>
+※上に行くほど危険ですが、餌の成長効率が4〜6倍跳ね上がります！`,
+
+  3: `<strong>【心理戦・親密度・天敵】</strong><br>
+・<strong>ペアイベント</strong>：同じエリアのカエルと発生。裏切れば自分だけ得をしますが、協力すればお互いの「親密度」がUP。<br>
+・<strong>親密度とピンク枠</strong>：<br>
+  協力やカエル団子で親密度が40を超えると、相手の名前が<strong>「ピンク枠💕」</strong>に変化。親密な相手と交配すると、産み落とす卵の数が大幅に増加します！<br>
+・<strong>天敵</strong>：予兆が出たら次ターン急襲！「隠れる」でやり過ごせます。`,
+
+  4: `<strong>【成長段階と残機制】</strong><br>
+・<strong>第1〜3段階 (オタマジャクシ期)</strong>：<br>
+  卵ストック（残機2機）あり。ヤゴに食われても水底から復活可能（ただし成長リセットで出遅れ）。<br>
+・<strong>第4段階 (尾の吸収・変態期)</strong>：<br>
+  <strong>残機が消滅し、完全な「永久死亡」へ切り替わります！</strong><br>
+・<strong>第6段階 (成体カエル)</strong>：<br>
+  求愛・繁殖が解禁！同じエリアの異性を指名して交配を狙えます。`
+};
+
 let ws = null;
 let currentRoomId = null;
 let myActorId = null;
@@ -430,6 +563,7 @@ let hasShownTraitModal = false;
 
 let lastRenderedTurn = -1;
 let lastRenderedEventId = null;
+let lastShownSummaryTurn = -1;
 
 const STAGE_NAMES = ["", "オタマジャクシ", "後足が生えた", "前足が生えた", "変態期(尾あり)", "子ガエル", "成体カエル"];
 const ZONE_NAMES = ["① 泥底・泥地", "② 水中(水草)", "③ 水面・浅瀬", "④ 水際・倒木", "⑤ 草むら・陸地"];
@@ -498,12 +632,6 @@ function joinRoom(roomId) {
     const data = JSON.parse(e.data);
     if (data.type === "INIT") {
       myActorId = data.myId;
-    } else if (data.type === "ERROR") {
-      alert(data.message || "参加できませんでした。");
-      document.getElementById("lobby-join-area").style.display = "block";
-      document.getElementById("lobby-wait-area").style.display = "none";
-      if (ws) ws.close();
-      return;
     } else if (data.type === "STATE_UPDATE") {
       lastState = data.state;
       handleStateUpdate(data.state);
@@ -534,6 +662,15 @@ function handleStateUpdate(state) {
     document.getElementById("lobby-screen").style.display = "none";
     showTraitModal(state);
     hasShownTraitModal = true;
+  }
+
+  // ★ターン解決サマリーダイアログの表示判定
+  if (state.status === "playing" && state.turnSummaries && state.turnSummaries[myActorId]) {
+    const sum = state.turnSummaries[myActorId];
+    if (sum.turn > lastShownSummaryTurn && sum.turn > 1) {
+      showTurnSummaryModal(sum);
+      lastShownSummaryTurn = sum.turn;
+    }
   }
 
   if (state.status === "finished" && state.ranking) {
@@ -592,6 +729,89 @@ function closeTraitModal() {
   document.getElementById("game-screen").style.display = "block";
 }
 
+// ★ターンサマリーダイアログ表示
+function showTurnSummaryModal(sum) {
+  document.getElementById("sum-turn-title").innerText = `【 TURN ${sum.turn - 1} 生存結果 】`;
+  document.getElementById("sum-action-txt").innerText = sum.action || "行動なし";
+  document.getElementById("sum-event-txt").innerText = sum.event || "特になし";
+  document.getElementById("sum-meta-txt").innerText = sum.metabolism || "正常";
+
+  const dBox = document.getElementById("sum-danger-box");
+  if (sum.danger) {
+    dBox.style.display = "block";
+    document.getElementById("sum-danger-txt").innerText = sum.danger;
+  } else {
+    dBox.style.display = "none";
+  }
+
+  const gBox = document.getElementById("sum-growth-box");
+  if (sum.growth) {
+    gBox.style.display = "block";
+    document.getElementById("sum-growth-txt").innerText = sum.growth;
+  } else {
+    gBox.style.display = "none";
+  }
+
+  document.getElementById("turn-summary-modal").style.display = "flex";
+}
+
+function closeTurnSummaryModal() {
+  document.getElementById("turn-summary-modal").style.display = "none";
+}
+
+// ★ルールブック表示
+function openRulebookModal() {
+  switchRuleTab(1);
+  document.getElementById("rulebook-modal").style.display = "flex";
+}
+
+function closeRulebookModal() {
+  document.getElementById("rulebook-modal").style.display = "none";
+}
+
+function switchRuleTab(tabIdx) {
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById(`rtab-${i}`).classList.toggle("active", i === tabIdx);
+  }
+  document.getElementById("rule-content").innerHTML = RULE_TEXTS[tabIdx];
+}
+
+// ★エリア別カエル一覧表示モーダル
+function openZoneActorsModal(zoneId) {
+  if (!lastState || !lastState.actors) return;
+  document.getElementById("zam-zone-title").innerText = `${ZONE_NAMES[zoneId]} にいるカエル一覧`;
+  const listEl = document.getElementById("zam-actors-list");
+  listEl.innerHTML = "";
+
+  const here = Object.values(lastState.actors).filter(a => a.alive && a.zone === zoneId);
+  if (here.length === 0) {
+    listEl.innerHTML = "<div style='color:#888; padding:8px;'>現在このエリアには誰もいません。</div>";
+  } else {
+    const me = lastState.actors[myActorId];
+    here.forEach(a => {
+      const isMe = (a.id === myActorId);
+      const aff = (me && me.affinity && me.affinity[a.id]) ? me.affinity[a.id] : 0;
+      const isPink = (!isMe && aff >= 40);
+
+      listEl.innerHTML += `
+        <div class="member-item ${isPink ? 'high-affinity' : ''}" style="cursor:pointer;" onclick="checkAffinityWith('${a.id}')">
+          <span>🐸 ${a.name} (${a.gender}) ${isMe ? '(あなた)' : ''}</span>
+          <span>
+            ${isMe ? '' : `<span style="color:${isPink ? 'var(--accent-pink)' : '#aaa'}; font-size:10px;">親密度: ${aff}</span>`}
+            <span style="color:#aaa; font-size:10px; margin-left:4px;">[${a.isPlayer ? 'PL' : a.personality}]</span>
+          </span>
+        </div>
+      `;
+    });
+  }
+
+  document.getElementById("zone-actors-modal").style.display = "flex";
+}
+
+function closeZoneActorsModal() {
+  document.getElementById("zone-actors-modal").style.display = "none";
+}
+
 function showStatusDetailModal() {
   if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
   const me = lastState.actors[myActorId];
@@ -618,7 +838,6 @@ function closeStatusDetailModal() {
   document.getElementById("status-detail-modal").style.display = "none";
 }
 
-// ★親密度確認ポップアップ
 function checkAffinityWith(targetId) {
   if (!lastState || !lastState.actors) return;
   const me = lastState.actors[myActorId];
@@ -627,11 +846,11 @@ function checkAffinityWith(targetId) {
 
   const aff = (me.affinity && me.affinity[targetId]) ? me.affinity[targetId] : 0;
   let statusTxt = "普通";
-  if (aff >= 70) statusTxt = "無二の親友（交配時卵数超特大ボーナス！）";
-  else if (aff >= 40) statusTxt = "親密（信頼関係あり・ピンク枠）";
+  if (aff >= 70) statusTxt = "無二の親友（交配時卵数特大ボーナス！）";
+  else if (aff >= 40) statusTxt = "親密（信頼関係あり・ピンク枠💕）";
   else if (aff <= -20) statusTxt = "険悪・敵対";
 
-  alert(`🐸 【${target.name}】との関係\n\n親密度: ${aff} / 100\n関係性: ${statusTxt}\n\n※ペアイベントでの協力やカエル団子で上昇し、交配時の卵数（スコア）が増加します！`);
+  alert(`🐸 【${target.name}】との関係\n\n親密度: ${aff} / 100\n関係性: ${statusTxt}\n\n※ペアイベント協力やカエル団子で上昇し、交配時の卵数（スコア）が増加します！`);
 }
 
 function renderGameUI(state) {
@@ -670,7 +889,7 @@ function renderGameUI(state) {
 
     if (lastRenderedTurn !== state.turn) {
       updateMoveSelect(me.stage, me.zone);
-      onMoveSelectChange(); // 獲物リスト初期化
+      onMoveSelectChange();
     }
 
     const btn = document.getElementById("submit-btn");
@@ -688,12 +907,9 @@ function renderGameUI(state) {
     renderMinimap(state, me.zone);
   }
 
-  // エリア対応イベントカードの描画
   renderAreaEventCard(state, me);
-
   lastRenderedTurn = state.turn;
 
-  // プレイヤーリスト（親密度ピンク枠対応）
   const pListEl = document.getElementById("player-list");
   pListEl.innerHTML = "";
   for (const act of Object.values(state.actors).filter(a => a.isPlayer)) {
@@ -718,194 +934,380 @@ function renderGameUI(state) {
   }
 }
 
-// 全体ミニマップ（親密度ピンク枠対応）
 function renderMinimap(state, myCurrentZone) {
-  const me = state.actors[myActorId];
-
   for (let z = 0; z < 5; z++) {
-    const zoneBox = document.getElementById(`mm-z-${z}`);    const actorsEl = document.getElementById(`mm-actors-${z}`);
-    if (!zoneBox || !actorsEl) continue;
-    zoneBox.classList.toggle("active-zone", z === myCurrentZone);
-    actorsEl.innerHTML = "";
-    Object.values(state.actors).filter(a => a.alive && a.zone === z).forEach(actor => {
-      const dot = document.createElement("span");
-      dot.className = `actor-dot ${actor.id === myActorId ? "dot-me" : actor.isPlayer ? "dot-pl" : "dot-npc"}`;
-      if (actor.id !== myActorId && me && me.affinity && (me.affinity[actor.id] || 0) >= 40) dot.classList.add("high-affinity");
-      dot.textContent = actor.id === myActorId ? "あなた" : actor.isPlayer ? actor.name.slice(0, 4) : "NPC";
-      dot.title = `${actor.name} / ${actor.gender}`;
-      if (actor.id !== myActorId) dot.addEventListener("click", () => checkAffinityWith(actor.id));
-      actorsEl.appendChild(dot);
+    const zoneBox = document.getElementById(`mm-z-${z}`);
+    const cntEl = document.getElementById(`mm-cnt-${z}`);
+
+    if (z === myCurrentZone) zoneBox.classList.add("active-zone");
+    else zoneBox.classList.remove("active-zone");
+
+    const here = Object.values(state.actors).filter(a => a.alive && a.zone === z);
+    cntEl.innerText = `${here.length}匹`;
+  }
+}
+
+function updateMoveSelect(myStage, currentZone) {
+  const sel = document.getElementById("move-sel");
+  const previousVal = sel.value;
+  sel.innerHTML = "";
+
+  [currentZone - 1, currentZone, currentZone + 1].forEach(z => {
+    if (z >= 0 && z < 5) {
+      const opt = document.createElement("option");
+      opt.value = z;
+      const minStage = [1, 1, 3, 4, 5][z];
+      const disabled = myStage < minStage;
+      opt.innerText = (z === currentZone ? "【現在地】" : "➔ ") + ZONE_NAMES[z] + (disabled ? " (成長不足)" : "");
+      opt.disabled = disabled;
+      sel.appendChild(opt);
+    }
+  });
+
+  if (previousVal && !sel.querySelector(`option[value="${previousVal}"]`)?.disabled) {
+    sel.value = previousVal;
+  } else {
+    sel.value = currentZone;
+  }
+}
+
+function onMoveSelectChange() {
+  updatePreyOptions();
+  updateActorTargetOptions();
+}
+
+function onActionChange() {
+  const act = document.getElementById("act-sel").value;
+  const feedBox = document.getElementById("feed-target-box");
+  const actorBox = document.getElementById("actor-target-box");
+  const actorLabel = document.getElementById("actor-target-label");
+
+  feedBox.style.display = (act === "feed") ? "block" : "none";
+
+  if (act === "huddle" || act === "attack" || act === "mate") {
+    actorBox.style.display = "block";
+    if (act === "huddle") actorLabel.innerText = "🤝 カエル団子する相手を指名:";
+    if (act === "attack") actorLabel.innerText = "⚔️ 攻撃・排除する相手を指名:";
+    if (act === "mate") actorLabel.innerText = "💖 求愛・交配する異性を指名:";
+    updateActorTargetOptions();
+  } else {
+    actorBox.style.display = "none";
+  }
+}
+
+// 捕食成功率付き獲物リスト
+function updatePreyOptions() {
+  if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
+  const me = lastState.actors[myActorId];
+  const targetZone = parseInt(document.getElementById("move-sel").value);
+  const preyList = PREY_MASTER[targetZone] || [];
+  const sel = document.getElementById("feed-target-sel");
+  const prev = sel.value;
+  sel.innerHTML = "";
+
+  const myPower = (me.length * 5) + (me.weight * 3) + (me.stamina * 0.2);
+
+  preyList.forEach(p => {
+    let chance = Math.round(60 + (myPower - p.diff) * 2);
+    if (me.trait === "大食漢") chance += 5;
+    chance = Math.max(15, Math.min(95, chance));
+
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.innerText = `${p.name} (成功率: ${chance}%, 満腹+${p.food}, EXP+${p.exp})`;
+    sel.appendChild(opt);
+  });
+
+  if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
+}
+
+function updateActorTargetOptions() {
+  if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
+  const me = lastState.actors[myActorId];
+  const act = document.getElementById("act-sel").value;
+  const targetZone = parseInt(document.getElementById("move-sel").value);
+  const sel = document.getElementById("actor-target-sel");
+  const prev = sel.value;
+  sel.innerHTML = "";
+
+  let candidates = Object.values(lastState.actors).filter(a => a.alive && a.id !== me.id && a.zone === targetZone);
+  if (act === "mate") {
+    candidates = candidates.filter(a => a.stage >= 6 && a.gender !== me.gender);
+  }
+
+  if (candidates.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.innerText = act === "mate" ? "このエリアに対象となる異性の成体はいません" : "このエリアに相手となるカエルはいません";
+    opt.disabled = true;
+    sel.appendChild(opt);
+  } else {
+    candidates.forEach(c => {
+      const aff = (me.affinity && me.affinity[c.id]) ? me.affinity[c.id] : 0;
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.innerText = `${c.name} (${c.gender}) [${c.isPlayer ? 'PL' : c.personality}] 親密度:${aff}`;
+      sel.appendChild(opt);
     });
+    if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
   }
 }
 
 function renderAreaEventCard(state, me) {
-  const card = document.getElementById("event-card-box");
-  const title = document.getElementById("ev-title");
-  const desc = document.getElementById("ev-desc");
-  const select = document.getElementById("ev-choice-sel");
-  if (!me || !state.eventsByZone) { card.style.display = "none"; return; }
-  const ev = state.eventsByZone[me.zone];
-  if (!ev) { card.style.display = "none"; return; }
-  card.style.display = "block";
-  title.textContent = ev.title || "【エリアイベント】";
-  desc.textContent = ev.desc || "このエリアでは特別な出来事が起こるかもしれない。";
-  const previous = select.value;
-  select.innerHTML = "";
-  (ev.choices || []).forEach(choice => {
-    const option = document.createElement("option");
-    option.value = choice.id;
-    option.textContent = choice.text;
-    select.appendChild(option);
-  });
-  if ([...select.options].some(o => o.value === previous)) select.value = previous;
-  const partnerId = state.pairTargets && state.pairTargets[myActorId];
+  if (!me) return;
+  const ev = (state.eventsByZone && state.eventsByZone[me.zone]) ? state.eventsByZone[me.zone] : null;
+  const box = document.getElementById("event-card-box");
+  const sel = document.getElementById("ev-choice-sel");
   const partnerBadge = document.getElementById("ev-partner-badge");
-  const partner = partnerId && state.actors[partnerId];
-  partnerBadge.style.display = partner ? "inline-block" : "none";
-  partnerBadge.textContent = partner ? `相手: ${partner.name}` : "";
-  select.disabled = !me.alive || me.ready || !(ev.choices && ev.choices.length);
-}
 
-function updateMoveSelect(stage, currentZone) {
-  const select = document.getElementById("move-sel");
-  if (!select) return;
-  const minStages = [1, 1, 3, 4, 5];
-  const oldValue = select.value;
-  select.innerHTML = "";
-  ZONE_NAMES.forEach((name, zone) => {
-    const option = document.createElement("option");
-    option.value = String(zone);
-    option.textContent = name;
-    option.disabled = stage < minStages[zone];
-    select.appendChild(option);
-  });
-  select.value = String((oldValue !== "" && !select.options[Number(oldValue)]?.disabled) ? Number(oldValue) : currentZone);
-  if (select.selectedIndex < 0 || select.options[select.selectedIndex].disabled) select.value = String(currentZone);
-}
+  if (!ev) {
+    box.style.display = "none";
+    lastRenderedEventId = null;
+    return;
+  }
 
-function onMoveSelectChange() {
-  const zone = Number(document.getElementById("move-sel").value || 1);
-  const preySelect = document.getElementById("feed-target-sel");
-  const old = preySelect.value;
-  preySelect.innerHTML = "";
-  (PREY_MASTER[zone] || []).forEach(prey => {
-    const opt = document.createElement("option");
-    opt.value = prey.id;
-    opt.textContent = `${prey.name}（難易度 ${prey.diff} / 満腹+${prey.food}）`;
-    preySelect.appendChild(opt);
-  });
-  if ([...preySelect.options].some(o => o.value === old)) preySelect.value = old;
-  refreshTargetActors();
-}
+  box.style.display = "block";
+  document.getElementById("ev-title").innerText = ev.title;
+  document.getElementById("ev-desc").innerText = ev.desc;
 
-function refreshTargetActors() {
-  const action = document.getElementById("act-sel").value;
-  const box = document.getElementById("actor-target-box");
-  const label = document.getElementById("actor-target-label");
-  const select = document.getElementById("actor-target-sel");
-  const needsTarget = ["huddle", "attack", "mate"].includes(action);
-  box.style.display = needsTarget ? "block" : "none";
-  label.textContent = action === "huddle" ? "🤝 寄り添う相手:" : action === "attack" ? "⚔️ 攻撃する相手:" : "💖 求愛する相手:";
-  const old = select.value;
-  select.innerHTML = "";
-  if (!lastState || !lastState.actors) return;
-  const me = lastState.actors[myActorId];
-  const zone = Number(document.getElementById("move-sel").value);
-  Object.values(lastState.actors).filter(a => a.alive && a.id !== myActorId && a.zone === zone && (action !== "mate" || (me && me.stage >= 6 && a.stage >= 6 && a.gender !== me.gender))).forEach(a => {
-    const opt = document.createElement("option"); opt.value = a.id; opt.textContent = `${a.name} (${a.gender}${a.isPlayer ? "・プレイヤー" : "・NPC"})`;
-    select.appendChild(opt);
-  });
-  if ([...select.options].some(o => o.value === old)) select.value = old;
-}
+  if (ev.type === "pair" && state.pairTargets && state.pairTargets[myActorId]) {
+    const pId = state.pairTargets[myActorId];
+    const partner = state.actors[pId];
+    if (partner) {
+      partnerBadge.style.display = "inline-block";
+      partnerBadge.innerText = `相手: ${partner.name}(${partner.gender})${partner.isPlayer ? '' : ` [${partner.personality}]`}`;
+    } else {
+      partnerBadge.style.display = "none";
+    }
+  } else {
+    partnerBadge.style.display = "none";
+  }
 
-function onActionChange() {
-  const action = document.getElementById("act-sel").value;
-  document.getElementById("feed-target-box").style.display = action === "feed" ? "block" : "none";
-  refreshTargetActors();
+  const eventUniqueKey = `${state.turn}_${ev.id}`;
+  if (lastRenderedEventId !== eventUniqueKey) {
+    lastRenderedEventId = eventUniqueKey;
+    sel.innerHTML = "";
+    ev.choices.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.innerText = c.text;
+      sel.appendChild(opt);
+    });
+  }
 }
 
 function sendAction() {
-  if (!ws || ws.readyState !== WebSocket.OPEN || !lastState) { alert("サーバーに接続されていません。"); return; }
-  const me = lastState.actors && lastState.actors[myActorId];
-  if (!me || !me.alive || me.ready) return;
+  const moveZone = parseInt(document.getElementById("move-sel").value);
   const act = document.getElementById("act-sel").value;
-  const moveZone = Number(document.getElementById("move-sel").value);
-  const action = { moveZone, act };
-  if (act === "feed") action.targetPreyId = document.getElementById("feed-target-sel").value;
-  if (["huddle", "attack", "mate"].includes(act)) {
-    action.targetId = document.getElementById("actor-target-sel").value || null;
-    if (!action.targetId) { alert("対象のカエルがこのエリアにいません。"); return; }
-  }
-  ws.send(JSON.stringify({ type: "SUBMIT_ACTION", action, eventChoice: document.getElementById("ev-choice-sel").value || null }));
+  const targetPreyId = document.getElementById("feed-target-sel").value;
+  const targetId = document.getElementById("actor-target-sel").value;
+  const evChoice = document.getElementById("ev-choice-sel").value;
+
+  ws.send(JSON.stringify({
+    type: "SUBMIT_ACTION",
+    action: { moveZone, act, targetPreyId, targetId },
+    eventChoice: evChoice
+  }));
 }
 
 function renderResult(state) {
-  const rankingBox = document.getElementById("ranking-box");
-  rankingBox.innerHTML = "";
-  (state.ranking || []).forEach((entry, index) => {
-    const row = document.createElement("div");
-    row.className = "rank-row";
-    row.innerHTML = `<span>${index + 1}位 ${entry.isPlayer ? "🐸" : ""}${escapeHtml(entry.name)} ${entry.alive ? "（生存）" : "（死亡）"}</span><strong>${entry.score} pt</strong>`;
-    rankingBox.appendChild(row);
+  const box = document.getElementById("ranking-box");
+  box.innerHTML = "";
+  state.ranking.forEach((r, idx) => {
+    box.innerHTML += `
+      <div class="rank-row">
+        <span><strong>${idx + 1}位</strong> ${r.name} (${r.gender}) [${r.alive ? '生存' : '死亡'}]</span>
+        <span>卵: ${r.offspring}個 / <strong>${r.score}pt</strong></span>
+      </div>
+    `;
   });
-  const mine = (state.ranking || []).find(a => a.id === myActorId);
-  document.getElementById("my-history-box").textContent = mine && mine.history ? mine.history.join("\n") : "記録がありません。";
+
+  const meRank = state.ranking.find(r => r.id === myActorId);
+  if (meRank && meRank.history) {
+    const hBox = document.getElementById("my-history-box");
+    hBox.innerHTML = meRank.history.map(h => `・${h}`).join("<br>");
+  }
 }
 
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
-}
-
+// ==================== 2Dドット絵アニメーションエンジン ====================
 function updateAnim() {
-  blinkTimer = (blinkTimer + 1) % 180;
-  if (heronAttackY > -50) heronAttackY = Math.min(-50, heronAttackY - 3);
-  if (yagoJawX < -20) yagoJawX += 1;
-  raindrops.forEach(d => { d.y += d.v; if (d.y > 155) { d.y = -5; d.x = Math.random() * 130; } });
+  blinkTimer++;
+  if (blinkTimer > 150) blinkTimer = 0;
+
+  bubbles.forEach(b => {
+    b.y -= b.s;
+    b.x += Math.sin(tick * 0.1 + b.y) * 0.3;
+    if (b.y < 20) { b.y = 140; b.x = 10 + Math.random() * 110; }
+  });
+
+  if (lastState && lastState.weather === "雨") {
+    raindrops.forEach(r => {
+      r.y += r.v; r.x -= 0.6;
+      if (r.y > 150) { r.y = 0; r.x = Math.random() * 150; }
+    });
+  }
+
+  if (heronAttackY > -45) {
+    if (heronAttackY < 75) heronAttackY += 6;
+    else heronAttackY -= 3;
+  }
+
+  if (yagoJawX > -15) {
+    if (yagoJawX < 24) yagoJawX += 5;
+    else yagoJawX -= 2;
+  }
 }
 
 function renderScene(ctx) {
-  if (!ctx) return;
-  const w = 130, h = 150;
-  ctx.clearRect(0, 0, w, h);
-  const weather = lastState ? lastState.weather : "快晴";
-  const me = lastState && lastState.actors ? lastState.actors[myActorId] : null;
-  const zone = me ? me.zone : 1;
-  const skies = ["#142b36", "#244b55", "#527b69", "#6c9b72", "#315b36"];
-  ctx.fillStyle = skies[zone] || skies[1]; ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "rgba(15,45,35,.45)"; ctx.fillRect(0, 90, w, 60);
-  // 水草・岸辺
-  ctx.strokeStyle = "#397b4c"; ctx.lineWidth = 2;
-  for (let i = 0; i < 7; i++) { const x = i * 21 + 5; ctx.beginPath(); ctx.moveTo(x, 150); ctx.quadraticCurveTo(x - 7, 120 - (i % 3) * 8, x + 2, 95); ctx.stroke(); }
-  ctx.fillStyle = "rgba(180,220,190,.25)";
-  bubbles.forEach(b => { ctx.beginPath(); ctx.arc(b.x, (b.y + tick * 0.25) % 150, 2 * b.s, 0, Math.PI * 2); ctx.fill(); });
-  if (weather === "雨") { ctx.strokeStyle = "rgba(180,220,255,.55)"; ctx.lineWidth = 1; raindrops.forEach(d => { ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - 2, d.y + 5); ctx.stroke(); }); }
-  if (me) drawFrog(ctx, me, 65, zone >= 3 ? 105 : 118);
-  if (heronAttackY > -50) { ctx.fillStyle = "#b9b8a2"; ctx.beginPath(); ctx.moveTo(95, heronAttackY); ctx.lineTo(115, heronAttackY + 8); ctx.lineTo(105, heronAttackY + 15); ctx.fill(); }
-  if (lastState && lastState.activePredatorAnimation === "yago") { ctx.fillStyle = "#a58a42"; ctx.fillRect(8, 132, 28, 7); ctx.fillStyle = "#d8bd65"; ctx.fillRect(28 + yagoJawX, 129, 12, 4); }
-  ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.fillRect(3, 3, 65, 12); ctx.fillStyle = "#e2f3df"; ctx.font = "7px monospace"; ctx.fillText(ZONE_NAMES[zone].slice(0, 12), 6, 12);
+  const me = (lastState && lastState.actors) ? lastState.actors[myActorId] : null;
+  const myZone = me ? me.zone : 1;
+  const myStage = me ? me.stage : 1;
+
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, 130, 150);
+
+  if (myZone === 4) {
+    ctx.fillStyle = "#1b2d18"; ctx.fillRect(0, 0, 130, 150);
+    ctx.fillStyle = "#274720";
+    for (let x = 4; x < 130; x += 8) ctx.fillRect(x, 150 - (60 + (x % 4) * 15), 3, 100);
+    ctx.fillStyle = "#3b6e32";
+    for (let x = 0; x < 130; x += 6) ctx.fillRect(x, 150 - (40 + (x % 3) * 12), 2, 80);
+    drawPixelCricket(ctx, 95, 80, tick);
+  } else if (myZone === 3) {
+    ctx.fillStyle = "#2b1f14"; ctx.fillRect(0, 0, 130, 150);
+    ctx.fillStyle = "#473420"; ctx.fillRect(10, 85, 110, 22);
+    ctx.fillStyle = "#63472b"; ctx.fillRect(15, 87, 100, 3);
+  } else if (myZone === 2) {
+    ctx.fillStyle = "#162820"; ctx.fillRect(0, 0, 130, 75);
+    ctx.fillStyle = "#16453f"; ctx.fillRect(0, 75, 130, 75);
+    ctx.fillStyle = "rgba(120, 240, 220, 0.7)"; ctx.fillRect(0, 75, 130, 2);
+    for (let x = 0; x < 130; x += 14) {
+      const wx = (x + (tick % 14)) % 130;
+      ctx.fillRect(wx, 75, 4, 1);
+    }
+  } else if (myZone === 1) {
+    const wg = ctx.createLinearGradient(0, 0, 0, 150);
+    wg.addColorStop(0, "#194d45"); wg.addColorStop(1, "#0a2420");
+    ctx.fillStyle = wg; ctx.fillRect(0, 0, 130, 150);
+    drawPixelWeed(ctx, 25, 150, 70, tick, 0);
+    drawPixelWeed(ctx, 105, 150, 80, tick, 2);
+    ctx.fillStyle = "rgba(200, 255, 240, 0.7)";
+    bubbles.forEach(b => ctx.fillRect(Math.floor(b.x), Math.floor(b.y), 2, 2));
+  } else {
+    ctx.fillStyle = "#120d08"; ctx.fillRect(0, 0, 130, 150);
+    ctx.fillStyle = "#24180e"; ctx.fillRect(0, 110, 130, 40);
+    ctx.fillStyle = "#382717";
+    ctx.fillRect(15, 125, 16, 8); ctx.fillRect(80, 130, 22, 10);
+  }
+
+  drawMyFrog(ctx, 65, 80, myStage, myZone);
+
+  if (heronAttackY > -45) {
+    ctx.fillStyle = "#e6a817";
+    ctx.beginPath();
+    ctx.moveTo(60, heronAttackY - 40); ctx.lineTo(70, heronAttackY - 40); ctx.lineTo(65, heronAttackY);
+    ctx.closePath(); ctx.fill();
+  }
+  if (yagoJawX > -15) {
+    ctx.fillStyle = (tick % 20 < 10) ? "#ff3333" : "#aa1111";
+    ctx.fillRect(25, 120, 3, 3);
+  }
+
+  if (lastState && lastState.weather === "雨") {
+    ctx.fillStyle = "rgba(180, 220, 255, 0.7)";
+    raindrops.forEach(r => ctx.fillRect(Math.floor(r.x), Math.floor(r.y), 1, 4));
+  }
 }
 
-function drawFrog(ctx, actor, x, y) {
-  const palette = FROG_PALETTES[Math.min(4, Math.max(0, actor.stage - 1))] || FROG_PALETTES[4];
-  const scale = Math.max(0.65, Math.min(1.5, 0.75 + (actor.length || 1) * 0.04));
-  ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
-  if (actor.stage <= 2) {
-    ctx.fillStyle = palette.body; ctx.beginPath(); ctx.ellipse(0, 0, 16, 7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = palette.dark; ctx.beginPath(); ctx.moveTo(-12, 1); ctx.lineTo(-29, -5); ctx.lineTo(-17, 6); ctx.fill();
+function drawMyFrog(ctx, x, y, st, z) {
+  const pal = FROG_PALETTES[z];
+  ctx.save();
+  ctx.translate(x, y);
+
+  if (st === 1) {
+    const tailOff = Math.round(Math.sin(tick * 0.25) * 3);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-5, -4, 10, 8);
+    ctx.fillStyle = "#77ee77"; ctx.fillRect(-4, -3, 8, 6);
+    ctx.fillStyle = "#000"; ctx.fillRect(2, -3, 2, 2);
+    ctx.fillStyle = pal.dark;
+    ctx.fillRect(-9, -2 + tailOff, 5, 4);
+    ctx.fillRect(-14, tailOff * 1.2, 5, 2);
+  } else if (st === 2) {
+    const kick = Math.sin(tick * 0.25) > 0 ? 1 : -1;
+    ctx.fillStyle = pal.dark; ctx.fillRect(-6, -5, 11, 9);
+    ctx.fillStyle = "#77ee77"; ctx.fillRect(-5, -4, 9, 7);
+    ctx.fillStyle = "#000"; ctx.fillRect(2, -4, 2, 2);
+    const tailWiggle = Math.round(Math.sin(tick * 0.25) * 2);
+    ctx.fillStyle = pal.dark;
+    ctx.fillRect(-11, -2 + tailWiggle, 5, 4);
+    if (kick > 0) { ctx.fillRect(-4, 4, 3, 5); ctx.fillRect(-7, 8, 4, 3); }
+    else { ctx.fillRect(-5, 3, 4, 4); }
+  } else if (st === 3) {
+    ctx.fillStyle = pal.dark; ctx.fillRect(-7, -6, 13, 11);
+    ctx.fillStyle = "#77ee77"; ctx.fillRect(-6, -5, 11, 9);
+    ctx.fillStyle = "#000"; ctx.fillRect(2, -4, 2, 2);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-12, -2, 6, 3);
+    ctx.fillRect(-3, 5, 3, 4); ctx.fillRect(-6, 5, 3, 4);
+  } else if (st === 4) {
+    ctx.fillStyle = pal.dark; ctx.fillRect(-8, -6, 15, 12);
+    ctx.fillStyle = "#77ee77"; ctx.fillRect(-7, -5, 13, 10);
+    ctx.fillStyle = pal.dark; ctx.fillRect(-12, -1, 4, 3);
+    ctx.fillStyle = pal.eye; ctx.fillRect(2, -7, 4, 3);
+    ctx.fillStyle = "#000"; ctx.fillRect(3, -6, 2, 1);
+  } else if (st === 5) {
+    ctx.fillStyle = pal.dark; ctx.fillRect(-8, -6, 15, 12);
+    ctx.fillStyle = "#77ee77"; ctx.fillRect(-7, -5, 13, 10);
+    ctx.fillStyle = pal.belly; ctx.fillRect(-3, 0, 6, 5);
+    ctx.fillStyle = pal.eye; ctx.fillRect(2, -7, 4, 3);
+    ctx.fillStyle = "#000"; ctx.fillRect(3, -6, 2, 1);
   } else {
-    ctx.fillStyle = palette.body; ctx.beginPath(); ctx.ellipse(0, 0, 13, 9, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(-7, -8, 5, 0, Math.PI * 2); ctx.arc(7, -8, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = palette.eye; ctx.fillRect(-9, -10, 3, 3); ctx.fillRect(5, -10, 3, 3);
-    ctx.strokeStyle = palette.dark; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, 5); ctx.lineTo(-15, 12); ctx.moveTo(8, 5); ctx.lineTo(15, 12); ctx.stroke();
+    const puff = (Math.sin(tick * 0.12) > 0.4) ? 3 : 0;
+    const isBlink = (blinkTimer > 140);
+
+    ctx.fillStyle = pal.dark;
+    ctx.fillRect(-12, 3, 7, 7); ctx.fillRect(6, 3, 7, 7);
+    ctx.fillRect(-9, -6, 19, 14);
+    ctx.fillStyle = "#77ee77"; ctx.fillRect(-8, -5, 17, 12);
+    ctx.fillStyle = pal.belly; ctx.fillRect(-4, 0, 8, 7);
+
+    if (puff > 0) {
+      ctx.fillStyle = pal.belly; ctx.fillRect(-5, -2, 11, 3 + puff);
+    }
+
+    ctx.fillStyle = "#112211"; ctx.fillRect(-7, -3, 15, 2);
+
+    if (!isBlink) {
+      ctx.fillStyle = pal.eye;
+      ctx.fillRect(-4, -9, 4, 4); ctx.fillRect(3, -9, 4, 4);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(-3, -8, 3, 1); ctx.fillRect(4, -8, 3, 1);
+    } else {
+      ctx.fillStyle = pal.dark;
+      ctx.fillRect(-4, -7, 4, 1); ctx.fillRect(3, -7, 4, 1);
+    }
   }
-  ctx.fillStyle = palette.belly; ctx.beginPath(); ctx.ellipse(0, 4, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(-6, -st * 2 - 8, 12, 2);
+
   ctx.restore();
 }
 
-// 初期状態でも行動選択UIを準備しておく
-onMoveSelectChange();
-onActionChange();
+function drawPixelWeed(ctx, x, baseY, h, t, off) {
+  const sway = Math.round(Math.sin(t * 0.08 + off) * 3);
+  ctx.fillStyle = "#1b4d29";
+  for (let y = 0; y < h; y += 4) {
+    const curX = x + Math.round((y / h) * sway);
+    ctx.fillRect(curX, baseY - y, 2, 4);
+  }
+}
+
+function drawPixelCricket(ctx, x, y, t) {
+  const jump = (t % 60 < 6) ? -3 : 0;
+  ctx.fillStyle = "#4a2a12"; ctx.fillRect(x, y + jump, 5, 3);
+  ctx.fillRect(x + 4, y - 2 + jump, 2, 2);
+}
 </script>
+
 </body>
 </html>
