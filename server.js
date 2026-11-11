@@ -323,6 +323,7 @@ wss.on("connection", (ws) => {
             coopRequests: {},
             coopAccepted: {},
             eventsByZone: {},
+            eventsByActor: {},
             pairTargets: {},
             turnSummaries: {},
             logs: ["池の卵塊から新たな命が生まれようとしている……"],
@@ -1117,6 +1118,7 @@ function getSanitizedRoomState(room) {
     actors: room.actors,
     coopRequests: room.coopRequests,
     eventsByZone: room.eventsByZone,
+    eventsByActor: room.eventsByActor || {},
     pairTargets: room.pairTargets,
     predatorThreats: room.predatorThreats || {},
     feedChances,
@@ -1181,33 +1183,52 @@ const PREDATOR_ZONE_CHANCE = [0.05, 0.10, 0.18, 0.24, 0.30];
 const PREDATOR_ZONE_NAMES = ["ヤゴ", "水中の天敵", "サギ", "イタチ", "ヘビ"];
 setupTurnEvents = function(room) {
   room.eventsByZone = {};
+  room.eventsByActor = {};
   room.pairTargets = {};
   room.predatorThreats = {};
   Object.values(room.actors).forEach(a => {
     a.turnStartStats = { stamina: a.stamina, length: a.length, weight: a.weight };
   });
   for (let z = 0; z < 5; z++) {
-    const actorsHere = Object.values(room.actors).filter(a => a.alive && a.zone === z);
-    const eligible = EVENTS_MASTER.solo.map(ev => ({ ...ev, type: "solo" }));
-    if (actorsHere.length >= 2) eligible.push(...EVENTS_MASTER.pair.map(ev => ({ ...ev, type: "pair" })));
-    const ev = eligible[Math.floor(Math.random() * eligible.length)];
-    room.eventsByZone[z] = ev;
-    if (ev.type === "pair" && actorsHere.length >= 2) {
-      room.pairTargets[actorsHere[0].id] = actorsHere[1].id;
-      room.pairTargets[actorsHere[1].id] = actorsHere[0].id;
+    const pairingPool = Object.values(room.actors).filter(a => a.alive && a.zone === z);
+    for (let i = pairingPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pairingPool[i], pairingPool[j]] = [pairingPool[j], pairingPool[i]];
     }
+
+    // Randomly decide how many pairs this zone forms; remaining frogs each get a solo event.
+    const pairCount = Math.floor(Math.random() * (Math.floor(pairingPool.length / 2) + 1));
+    const zoneEvents = [];
+    for (let i = 0; i < pairCount; i++) {
+      const first = pairingPool[i * 2];
+      const second = pairingPool[i * 2 + 1];
+      const source = EVENTS_MASTER.pair[Math.floor(Math.random() * EVENTS_MASTER.pair.length)];
+      const event = { ...source, type: "pair" };
+      room.eventsByActor[first.id] = event;
+      room.eventsByActor[second.id] = event;
+      room.pairTargets[first.id] = second.id;
+      room.pairTargets[second.id] = first.id;
+      zoneEvents.push(event);
+    }
+    for (let i = pairCount * 2; i < pairingPool.length; i++) {
+      const actor = pairingPool[i];
+      const source = EVENTS_MASTER.solo[Math.floor(Math.random() * EVENTS_MASTER.solo.length)];
+      const event = { ...source, type: "solo" };
+      room.eventsByActor[actor.id] = event;
+      zoneEvents.push(event);
+    }
+    room.eventsByZone[z] = zoneEvents[0] || null;
     room.predatorThreats[z] = room.weather !== WEATHERS[4] && Math.random() < PREDATOR_ZONE_CHANCE[z];
   }
 };
 
-const originalResolveEvents = resolveEvents;
 resolveEvents = function(room, logs) {
   const savedChoices = { ...room.eventChoices };
   for (const [actorId, partnerId] of Object.entries(room.pairTargets || {})) {
     const actor = room.actors[actorId];
     const partner = room.actors[partnerId];
     if (!actor || !partner || actorId > partnerId) continue;
-    const ev = room.eventsByZone[actor.zone];
+    const ev = room.eventsByActor[actorId];
     if (!ev || ev.type !== "pair" || !ev.choices || ev.choices.length < 2) continue;
     for (const [who, other] of [[actor, partner], [partner, actor]]) {
       if (room.eventChoices[who.id] !== ev.choices[ev.choices.length - 1].id) continue;
@@ -1221,28 +1242,46 @@ resolveEvents = function(room, logs) {
       if (Math.random() * 100 >= betrayalChance) room.eventChoices[who.id] = ev.choices[0].id;
     }
   }
+
   const resolvedChoices = { ...room.eventChoices };
-  originalResolveEvents(room, logs);
+  const resolvedPairs = new Set();
   for (const [actorId, partnerId] of Object.entries(room.pairTargets || {})) {
     const actor = room.actors[actorId];
     const partner = room.actors[partnerId];
     if (!actor || !partner || actorId > partnerId) continue;
-    const pairEvent = room.eventsByZone[actor.zone];
-    if (actor.zone !== partner.zone || !pairEvent || pairEvent.type !== "pair") continue;
-    const affinity = (actor.affinity && actor.affinity[partner.id]) || 0;
-    for (const id of [actor.id, partner.id]) {
-      const summary = room.turnSummaries[id];
-      if (summary && summary.event) summary.event += ` （現在の親密度: ${affinity}）`;
-    }
-    const betrayalChoice = pairEvent.choices && pairEvent.choices[pairEvent.choices.length - 1];
+    const ev = room.eventsByActor[actorId];
+    if (!ev || ev.type !== "pair" || room.eventsByActor[partnerId]?.id !== ev.id) continue;
+    resolvedPairs.add(actorId);
+    resolvedPairs.add(partnerId);
+    if (!actor.alive || !partner.alive || actor.zone !== partner.zone || !ev.resolvePair) continue;
+    const c1 = room.eventChoices[actorId] || ev.choices[0].id;
+    const c2 = room.eventChoices[partnerId] || ev.choices[0].id;
+    const result = ev.resolvePair(actor, c1, partner, c2);
+    room.turnSummaries[actorId].event = result.log1;
+    room.turnSummaries[partnerId].event = result.log2;
+    const affinity = (actor.affinity && actor.affinity[partnerId]) || 0;
+    room.turnSummaries[actorId].event += ` （現在の親密度: ${affinity}）`;
+    room.turnSummaries[partnerId].event += ` （現在の親密度: ${affinity}）`;
+
+    const betrayalChoice = ev.choices[ev.choices.length - 1];
     if (betrayalChoice) {
-      for (const [who, other] of [[actor, partner], [partner, actor]]) {
-        if (resolvedChoices[other.id] !== betrayalChoice.id) continue;
-        const summary = room.turnSummaries[who.id];
-        if (summary) summary.event += ` 相手は「${betrayalChoice.text}」を選び、裏切る行動を実行した。`;
+      if (resolvedChoices[partnerId] === betrayalChoice.id) {
+        room.turnSummaries[actorId].event += ` 相手は「${betrayalChoice.text}」を選び、裏切る行動を実行した。`;
+      }
+      if (resolvedChoices[actorId] === betrayalChoice.id) {
+        room.turnSummaries[partnerId].event += ` 相手は「${betrayalChoice.text}」を選び、裏切る行動を実行した。`;
       }
     }
   }
+
+  Object.values(room.actors).forEach(actor => {
+    if (!actor.alive || resolvedPairs.has(actor.id)) return;
+    const ev = room.eventsByActor[actor.id];
+    if (!ev || ev.type !== "solo" || !ev.resolve) return;
+    const choice = room.eventChoices[actor.id] || ev.choices?.[0]?.id || "none";
+    room.turnSummaries[actor.id].event = ev.resolve(actor, choice);
+  });
+
   Object.values(room.turnSummaries).forEach(summary => {
     if (!summary.socialLog) return;
     const eventText = summary.event || "特になし";
@@ -1285,15 +1324,15 @@ resolveActions = function(room, logs) {
     if (!actor.alive || !action || action.act !== "call" || actor.stage < 5) return;
     const listeners = Object.values(room.actors).filter(other => other.alive && other.id !== actor.id && other.zone === actor.zone);
     listeners.forEach(listener => {
-      addAffinity(actor, listener, 3);
+      addAffinity(actor, listener, 5);
       if (room.turnSummaries[listener.id]) {
         const previousEvent = room.turnSummaries[listener.id].event || "";
-        const heardCall = `${actor.name}の鳴き声が聞こえ、親密度+3。`;
+        const heardCall = `${actor.name}の鳴き声が聞こえ、親密度+5。`;
         room.turnSummaries[listener.id].event = previousEvent === "特になし" ? heardCall : `${previousEvent} ${heardCall}`.trim();
       }
     });
     room.turnSummaries[actor.id].action = listeners.length
-      ? `【鳴く】エリアの${listeners.length}匹に協力を呼びかけた。（それぞれ親密度+3）`
+      ? `【鳴く】エリアの${listeners.length}匹に協力を呼びかけた。（それぞれ親密度+5）`
       : "【鳴く】声を響かせたが、同じエリアに仲間はいなかった。";
   });
 };
@@ -1384,7 +1423,7 @@ decideNpcActions = function(room) {
 
     room.actions[npc.id] = { moveZone: targetZone, act, targetPreyId: prey.id, targetId };
 
-    const event = room.eventsByZone[targetZone];
+    const event = room.eventsByActor[npc.id] || room.eventsByZone[targetZone];
     if (event && event.choices && event.choices.length) {
       const prefersCooperation = personality === PERSONALITIES[0] || personality === PERSONALITIES[3];
       room.eventChoices[npc.id] = prefersCooperation ? event.choices[0].id : event.choices[event.choices.length - 1].id;

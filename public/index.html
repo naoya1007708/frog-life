@@ -56,8 +56,9 @@
 
   .view-container { display: flex; gap: 6px; width: 100%; height: 230px; }
   .screen-frame {
-    flex: 1.8; background: #000; border-radius: 6px; overflow: hidden;
-    border: 2px solid #233626; position: relative;
+    flex: 1.8; background: #091615; border-radius: 7px; overflow: hidden;
+    border: 2px solid #5b9f58; position: relative;
+    box-shadow: inset 0 0 0 3px #1b342b, 0 0 10px rgba(90, 180, 105, 0.18);
   }
   canvas#retroCanvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
 
@@ -379,6 +380,7 @@
           <span id="txt-room-id" style="color:var(--accent); font-weight:bold; font-size:11px;">池: #----</span>
           <span id="txt-turn" style="font-weight:bold; font-size:11px;">TURN 1</span>
           <span id="txt-timer" style="color:#ffaa66; font-weight:bold; font-size:12px;">120秒</span>
+          <button class="secondary" id="sound-toggle" style="width:auto; padding:2px 7px; font-size:10px; border-color:var(--accent); color:var(--accent);" onclick="toggleGameAudio()">🔊 音声ON</button>
           <button class="secondary" style="width:auto; padding:2px 8px; font-size:10px; border-color:var(--accent-gold); color:var(--accent-gold);" onclick="openRulebookModal()">
             📖 ルール
           </button>
@@ -656,6 +658,130 @@ const FROG_PALETTES = {
   0: { body: "#785838", dark: "#422e18", belly: "#c2a88a", eye: "#d09020" }
 };
 
+let gameAudioContext = null;
+let gameAudioMaster = null;
+let gameAudioEnabled = true;
+let gameAudioUnlocked = false;
+let weatherBgmTimer = null;
+let currentBgmWeather = null;
+let weatherBgmStep = 0;
+
+const WEATHER_BGM = {
+  "快晴": { notes: [392, 494, 587, 494, 440, 523, 659, 523], interval: 920, wave: "triangle" },
+  "曇り": { notes: [294, 349, 392, 349, 262, 330], interval: 1250, wave: "sine" },
+  "雨": { notes: [262, 330, 392, 330, 220, 294], interval: 1120, wave: "triangle" },
+  "日照り": { notes: [220, 262, 294, 262, 196, 220], interval: 1480, wave: "sine" },
+  "豪雨": { notes: [196, 220, 262, 220, 174, 196], interval: 1320, wave: "triangle" }
+};
+
+function ensureGameAudio() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return null;
+  if (!gameAudioContext) {
+    gameAudioContext = new AudioContextClass();
+    gameAudioMaster = gameAudioContext.createGain();
+    gameAudioMaster.gain.value = gameAudioEnabled ? 0.45 : 0;
+    gameAudioMaster.connect(gameAudioContext.destination);
+  }
+  return gameAudioContext;
+}
+
+function unlockGameAudio() {
+  if (!gameAudioEnabled) return;
+  const ctx = ensureGameAudio();
+  if (!ctx) return;
+  ctx.resume().then(() => {
+    gameAudioUnlocked = true;
+    if (lastState && lastState.status === "playing") updateWeatherBgm(lastState.weather);
+  }).catch(() => {});
+}
+
+document.addEventListener("pointerdown", unlockGameAudio, { passive: true });
+
+function stopWeatherBgm() {
+  if (weatherBgmTimer) clearInterval(weatherBgmTimer);
+  weatherBgmTimer = null;
+  currentBgmWeather = null;
+}
+
+function playWeatherNote(cfg) {
+  if (!gameAudioContext || !gameAudioMaster || !gameAudioEnabled) return;
+  const now = gameAudioContext.currentTime;
+  const frequency = cfg.notes[weatherBgmStep % cfg.notes.length];
+  weatherBgmStep++;
+  const oscillator = gameAudioContext.createOscillator();
+  const gain = gameAudioContext.createGain();
+  oscillator.type = cfg.wave;
+  oscillator.frequency.setValueAtTime(frequency, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(0.018, now + 0.06);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
+  oscillator.connect(gain);
+  gain.connect(gameAudioMaster);
+  oscillator.start(now);
+  oscillator.stop(now + 0.64);
+}
+
+function updateWeatherBgm(weather) {
+  if (!gameAudioEnabled || !gameAudioUnlocked || !gameAudioContext || !weather) return;
+  if (weather === currentBgmWeather && weatherBgmTimer) return;
+  stopWeatherBgm();
+  currentBgmWeather = weather;
+  weatherBgmStep = 0;
+  const cfg = WEATHER_BGM[weather] || WEATHER_BGM["曇り"];
+  playWeatherNote(cfg);
+  weatherBgmTimer = setInterval(() => playWeatherNote(cfg), cfg.interval);
+}
+
+function toggleGameAudio() {
+  gameAudioEnabled = !gameAudioEnabled;
+  const button = document.getElementById("sound-toggle");
+  if (button) button.textContent = gameAudioEnabled ? "🔊 音声ON" : "🔇 音声OFF";
+  const ctx = ensureGameAudio();
+  if (!ctx || !gameAudioMaster) return;
+  if (!gameAudioEnabled) {
+    stopWeatherBgm();
+    gameAudioMaster.gain.setTargetAtTime(0, ctx.currentTime, 0.04);
+    return;
+  }
+  ctx.resume().then(() => {
+    gameAudioUnlocked = true;
+    gameAudioMaster.gain.setTargetAtTime(0.45, ctx.currentTime, 0.04);
+    if (lastState && lastState.status === "playing") updateWeatherBgm(lastState.weather);
+  }).catch(() => {});
+}
+
+function playFrogCroak() {
+  if (!gameAudioEnabled) return;
+  const ctx = ensureGameAudio();
+  if (!ctx || !gameAudioMaster) return;
+  const play = () => {
+    if (!gameAudioEnabled) return;
+    gameAudioUnlocked = true;
+    const now = ctx.currentTime;
+    [0, 0.19].forEach((offset, index) => {
+      const oscillator = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+      oscillator.type = "sawtooth";
+      oscillator.frequency.setValueAtTime(index ? 175 : 235, now + offset);
+      oscillator.frequency.exponentialRampToValueAtTime(index ? 82 : 105, now + offset + 0.13);
+      filter.type = "lowpass";
+      filter.frequency.value = 850;
+      gain.gain.setValueAtTime(0.0001, now + offset);
+      gain.gain.linearRampToValueAtTime(0.11, now + offset + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.17);
+      oscillator.connect(filter);
+      filter.connect(gain);
+      gain.connect(gameAudioMaster);
+      oscillator.start(now + offset);
+      oscillator.stop(now + offset + 0.18);
+    });
+  };
+  if (ctx.state === "suspended") ctx.resume().then(play).catch(() => {});
+  else play();
+}
+
 let tick = 0;
 let blinkTimer = 0;
 let heronAttackY = -50;
@@ -670,9 +796,12 @@ window.addEventListener("DOMContentLoaded", () => {
   if (r) document.getElementById("room-input").value = r;
 
   const canvas = document.getElementById("retroCanvas");
+  const renderScale = 2 * Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+  canvas.width = Math.round(130 * renderScale);
+  canvas.height = Math.round(150 * renderScale);
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
-  ctx.scale(2, 2);
+  ctx.scale(renderScale, renderScale);
   function loop() {
     tick++;
     updateAnim();
@@ -782,6 +911,8 @@ function showLobbyAfterExit(message) {
 
 function handleStateUpdate(state) {
   try {
+    if (state.status === "playing") updateWeatherBgm(state.weather);
+    else stopWeatherBgm();
     if (state.status === "waiting") {
       renderLobby(state);
       return;
@@ -908,7 +1039,7 @@ function showTurnSummaryModal(sum, state) {
     let threatText = "気配なし（低確率の襲撃リスクあり）";
     if (state.weather === "豪雨") {
       threatText = "豪雨のため天敵の襲撃なし";
-    } else if (me && me.personality === "慎重") {
+    } else if (me && me.trait === "慎重") {
       threatText = "慎重な勘で天敵の危険を100%察知";
     } else if (zone !== null && threats[zone] === true) {
       threatText = "気配あり（襲撃率上昇）";
@@ -1084,7 +1215,7 @@ function renderGameUI(state) {
         callOption.disabled = me.stage < 5;
         callOption.textContent = me.stage < 5
           ? "鳴く（子ガエルから解禁）"
-          : "鳴く（同じエリアの全員と親密度+3）";
+          : "鳴く（同じエリアの全員と親密度+5）";
       }
       const mateOption = document.querySelector('#act-sel option[value="mate"]');
       if (mateOption) {
@@ -1197,7 +1328,7 @@ function updateThreatIndicator(state, me) {
   }
   const moveSel = document.getElementById("move-sel");
   const zone = me.alive && moveSel && moveSel.value !== "" ? Number(moveSel.value) : Number(me.zone);
-  if (state.weather !== "豪雨" && me.personality === "慎重") {
+  if (state.weather !== "豪雨" && me.trait === "慎重") {
     alert.innerText = `⚠️ ${zones[zone]}：慎重な勘が天敵の危険を100%察知しています。`;
   } else if (threats[zone] === true) {
     alert.innerText = `⚠️ ${zones[zone]}に天敵の気配。襲撃率が上昇しています。`;
@@ -1255,7 +1386,7 @@ function onMoveSelectChange() {
 
 const callActionOption = document.createElement("option");
 callActionOption.value = "call";
-callActionOption.textContent = "鳴く（同じエリアの全員と親密度+3）";
+callActionOption.textContent = "鳴く（同じエリアの全員と親密度+5）";
 document.getElementById("act-sel").appendChild(callActionOption);
 
 function onActionChange() {
@@ -1437,8 +1568,9 @@ function updateCoopChanceDisplay() {
 // エリアイベントの描画
 function renderAreaEventCard(state, me) {
   if (!me) return;
-  const myZ = parseInt(me.zone, 10) || 1;
-  const ev = (state.eventsByZone && state.eventsByZone[myZ]) ? state.eventsByZone[myZ] : null;
+  const parsedZone = parseInt(me.zone, 10);
+  const myZ = Number.isNaN(parsedZone) ? 1 : parsedZone;
+  const ev = (state.eventsByActor && state.eventsByActor[myActorId]) || (state.eventsByZone && state.eventsByZone[myZ]) || null;
   const box = document.getElementById("event-card-box");
   const sel = document.getElementById("ev-choice-sel");
   const partnerBadge = document.getElementById("ev-partner-badge");
@@ -1456,14 +1588,22 @@ function renderAreaEventCard(state, me) {
   document.getElementById("ev-title").innerText = ev.title || "【イベント】";
   document.getElementById("ev-desc").innerText = ev.desc || "";
 
-  if (ev.type === "pair" && state.pairTargets && state.pairTargets[myActorId]) {
-    const pId = state.pairTargets[myActorId];
+  if (ev.type === "pair") {
+    const pId = state.pairTargets && state.pairTargets[myActorId];
+    if (!pId) {
+      document.getElementById("ev-desc").innerText += "\nこのペアイベントの対象相手はいません。今回は選択・発生しません。";
+      partnerBadge.style.display = "none";
+      sel.innerHTML = "<option value='none'>対象外</option>";
+      sel.style.display = "none";
+      return;
+    }
     const partner = state.actors[pId];
     if (partner) {
       partnerBadge.style.display = "inline-block";
       partnerBadge.innerText = `相手: ${partner.name}(${partner.gender})${partner.isPlayer ? '' : ` [${partner.personality}]`}`;
     } else {
-      partnerBadge.style.display = "none";
+      partnerBadge.style.display = "inline-block";
+      partnerBadge.innerText = "相手: 情報を取得中";
     }
   } else {
     partnerBadge.style.display = "none";
@@ -1489,6 +1629,7 @@ function renderAreaEventCard(state, me) {
 }
 
 function sendAction() {
+  playFrogCroak();
   let moveZone = parseInt(document.getElementById("move-sel").value, 10);
   if (isNaN(moveZone)) {
     const me = (lastState && lastState.actors) ? lastState.actors[myActorId] : null;
@@ -1678,6 +1819,8 @@ function drawMyFrog(ctx, x, y, st, z) {
     ctx.fillStyle = pal.belly; ctx.fillRect(-4, 1, 7, 3);
     ctx.fillStyle = pal.eye; ctx.fillRect(2, -5, 4, 4);
     ctx.fillStyle = "#17251b"; ctx.fillRect(3, -4, 2, 3);
+    ctx.fillStyle = "#fffde5"; ctx.fillRect(2.5, -4.5, 1, 1);
+    ctx.fillStyle = "rgba(244,145,157,0.75)"; ctx.fillRect(-5, -1, 2, 1);
     ctx.fillStyle = pal.dark; ctx.fillRect(-13, -2 + tailOff, 7, 4); ctx.fillRect(-20, tailOff, 7, 2);
     ctx.fillStyle = pal.body; ctx.fillRect(-12, -1 + tailOff, 5, 2);
   } else if (st === 2) {
@@ -1687,6 +1830,7 @@ function drawMyFrog(ctx, x, y, st, z) {
     ctx.fillStyle = pal.belly; ctx.fillRect(-4, 1, 9, 4);
     ctx.fillStyle = pal.eye; ctx.fillRect(3, -7, 5, 5);
     ctx.fillStyle = "#17251b"; ctx.fillRect(4, -6, 3, 3);
+    ctx.fillStyle = "#fffde5"; ctx.fillRect(4.5, -6.5, 1, 1);
     const tailWiggle = Math.round(Math.sin(tick * 0.25) * 2);
     ctx.fillStyle = pal.dark; ctx.fillRect(-15, -3 + tailWiggle, 7, 5); ctx.fillRect(-21, tailWiggle, 7, 3);
     ctx.fillStyle = pal.body; ctx.fillRect(-14, -2 + tailWiggle, 5, 3);
@@ -1699,6 +1843,8 @@ function drawMyFrog(ctx, x, y, st, z) {
     ctx.fillStyle = pal.body; ctx.fillRect(-9, -8, 18, 15); ctx.fillRect(-12, -4, 24, 8);
     ctx.fillStyle = pal.belly; ctx.fillRect(-5, 1, 10, 6);
     ctx.fillStyle = pal.eye; ctx.fillRect(3, -9, 5, 5); ctx.fillStyle = "#17251b"; ctx.fillRect(5, -8, 2, 3);
+    ctx.fillStyle = "#fffde5"; ctx.fillRect(5.5, -8.5, 1, 1);
+    ctx.fillStyle = "rgba(244,145,157,0.7)"; ctx.fillRect(-10, -1, 2, 1);
     ctx.fillStyle = pal.body; ctx.fillRect(-16, -1, 5, 4);
   } else if (st === 4) {
     ctx.fillStyle = pal.dark; ctx.fillRect(-16, 5, 10, 13); ctx.fillRect(7, 5, 10, 13);
@@ -1708,6 +1854,7 @@ function drawMyFrog(ctx, x, y, st, z) {
     ctx.fillStyle = pal.body; ctx.fillRect(-12, -8, 24, 20); ctx.fillRect(-16, -3, 32, 11);
     ctx.fillStyle = pal.belly; ctx.fillRect(-7, 2, 14, 9);
     ctx.fillStyle = pal.eye; ctx.fillRect(5, -10, 6, 5); ctx.fillStyle = "#17251b"; ctx.fillRect(7, -9, 3, 3);
+    ctx.fillStyle = "#fffde5"; ctx.fillRect(7.5, -9.5, 1, 1);
     ctx.fillStyle = pal.dark; ctx.fillRect(-20, -1, 6, 4);
   } else if (st === 5) {
     ctx.fillStyle = pal.dark; ctx.fillRect(-19, 7, 12, 15); ctx.fillRect(8, 7, 12, 15);
@@ -1720,6 +1867,8 @@ function drawMyFrog(ctx, x, y, st, z) {
     ctx.fillStyle = pal.belly; ctx.fillRect(-12, -18, 8, 7); ctx.fillRect(5, -18, 8, 7);
     ctx.fillStyle = "#17251b"; ctx.fillRect(-9, -17, 4, 6); ctx.fillRect(7, -17, 4, 6);
     ctx.fillStyle = pal.dark; ctx.fillRect(-21, -2, 6, 4);
+    ctx.fillStyle = "rgba(244,145,157,0.78)"; ctx.fillRect(-20, -1, 4, 2); ctx.fillRect(16, -1, 4, 2);
+    ctx.fillStyle = "#fffde5"; ctx.fillRect(-10, -17, 1, 1); ctx.fillRect(6, -17, 1, 1);
   } else {
     const puff = (Math.sin(tick * 0.12) > 0.4) ? 3 : 0;
     const isBlink = (blinkTimer > 140);
@@ -1755,6 +1904,7 @@ function drawMyFrog(ctx, x, y, st, z) {
       ctx.fillStyle = pal.eye; ctx.fillRect(-12, -26, 6, 9); ctx.fillRect(7, -26, 6, 9);
       ctx.fillStyle = "#102019"; ctx.fillRect(-10, -25, 4, 7); ctx.fillRect(8, -25, 4, 7);
       ctx.fillStyle = "#fffde5"; ctx.fillRect(-12, -26, 2, 2); ctx.fillRect(7, -26, 2, 2);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(-12.5, -26.5, 1, 1); ctx.fillRect(6.5, -26.5, 1, 1);
     } else {
       ctx.fillStyle = pal.dark; ctx.fillRect(-15, -23, 12, 2); ctx.fillRect(5, -23, 12, 2);
     }
@@ -1765,6 +1915,9 @@ function drawMyFrog(ctx, x, y, st, z) {
     ctx.fillRect(-8, 1, 16, 2); ctx.fillRect(-7, 3, 2, 2); ctx.fillRect(5, 3, 2, 2);
     ctx.fillStyle = highlight; ctx.fillRect(-22, -5, 4, 3); ctx.fillRect(18, -5, 4, 3);
     ctx.fillStyle = pal.dark; ctx.fillRect(-17, -2, 2, 2); ctx.fillRect(15, -2, 2, 2);
+    ctx.fillStyle = "rgba(244,145,157,0.78)"; ctx.fillRect(-21, -1, 4, 2); ctx.fillRect(17, -1, 4, 2);
+    ctx.fillStyle = "rgba(255,213,183,0.75)"; ctx.fillRect(-20.5, -1.5, 1, 1); ctx.fillRect(19.5, -1.5, 1, 1);
+    ctx.fillStyle = highlight; ctx.fillRect(-13.5, 11.5, 1, 1); ctx.fillRect(11.5, 14.5, 1, 1);
 
     if (puff > 0) { ctx.fillStyle = pal.belly; ctx.fillRect(-8, 4, 16, 3 + puff); }
   }
@@ -1772,6 +1925,8 @@ function drawMyFrog(ctx, x, y, st, z) {
   if (st >= 4) {
     ctx.fillStyle = "rgba(210,245,175,0.45)";
     ctx.fillRect(-34, -13, 2, 2); ctx.fillRect(31, -22, 2, 2);
+    ctx.fillStyle = "rgba(255,246,188,0.9)";
+    ctx.fillRect(-31.5, -16.5, 1, 1); ctx.fillRect(29.5, 4.5, 1, 1);
   }
 
   ctx.restore();
