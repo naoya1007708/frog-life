@@ -710,15 +710,11 @@ function resolveTurn(room) {
   room.lastResolvedTurn = finishedTurn;
   const playerTurnLogs = Object.values(room.actors).filter(actor => actor.isPlayer).map(actor => {
     const summary = room.turnSummaries[actor.id];
-    const details = [summary.action];
-    if (summary.event && summary.event !== "特になし") details.push(summary.event);
-    if (summary.metabolism && summary.metabolism !== "正常") details.push(summary.metabolism);
-    if (summary.danger) details.push(summary.danger);
-    if (summary.growth) details.push(summary.growth);
-    return `\u3010\u7b2c${finishedTurn}\u30bf\u30fc\u30f3\u3011${actor.name}: ${details.filter(Boolean).join(" / ")}`;
+    const action = summary && summary.action ? summary.action : "";
+    return `\u3010\u7b2c${finishedTurn}\u30bf\u30fc\u30f3\u3011${actor.name}: ${action}`;
   });
-  room.playerActionLogs = [...new Set([...playerTurnLogs, ...(room.playerActionLogs || [])])].slice(0, 100);
-
+  // One concise player-only entry per turn; preserve turn labels and discard duplicate rows.
+  room.playerActionLogs = [...new Set([...playerTurnLogs, ...(room.playerActionLogs || [])])].slice(0, 24);
   room.logs = [...turnLogs, ...room.logs].slice(0, 50);
 
   // ⑨ ゲーム終了チェック
@@ -1488,106 +1484,172 @@ resolvePredators = function(room, logs) {
   protectedActors.forEach(actor => { actor.alive = true; });
 };
 
-// NPC personalities drive distinct movement, feeding, social, and defense choices.
+// Score-aware NPC policy: evaluates expected public outcomes with the same resolution formulas.
 decideNpcActions = function(room) {
-  const aliveActors = Object.values(room.actors).filter(actor => actor.alive);
-  const minStageByZone = [1, 1, 3, 4, 5];
-  const reachableZones = npc => [npc.zone - 1, npc.zone, npc.zone + 1]
-    .filter(zone => zone >= 0 && zone <= 4 && npc.stage >= minStageByZone[zone]);
-  const traitIs = (npc, codepoints) => npc.trait === String.fromCodePoint(...codepoints);
-  const isBigEater = npc => traitIs(npc, [0x5927, 0x98df, 0x6f22]);
-  const isLight = npc => traitIs(npc, [0x8eab, 0x8efd]);
-  const isSturdy = npc => traitIs(npc, [0x9811, 0x5f37]);
-  const isHighMetabolism = npc => traitIs(npc, [0x9ad8, 0x4ee3, 0x8b1d]);
-  const isCautious = npc => traitIs(npc, [0x614e, 0x91cd]);
-  const actorsByZone = (zone, exceptId) => aliveActors.filter(actor => actor.id !== exceptId && actor.zone === zone);
-  const predictedEggCount = (npc, partner) => {
-    const affinity = (npc.affinity && npc.affinity[partner.id]) || 0;
-    if (affinity >= 70) return 53;
-    if (affinity >= 40) return 38;
-    if (affinity >= 20) return 25;
-    return 18;
+  const living = Object.values(room.actors).filter(actor => actor.alive);
+  const minStage = [1, 1, 3, 4, 5];
+  const turnsLeft = Math.max(1, TOTAL_TURNS - room.turn + 1);
+  const hasTrait = (npc, points) => npc.trait === String.fromCodePoint(...points);
+  const bigEater = npc => hasTrait(npc, [0x5927, 0x98df, 0x6f22]);
+  const highMetabolism = npc => hasTrait(npc, [0x9ad8, 0x4ee3, 0x8b1d]);
+  const sturdy = npc => hasTrait(npc, [0x9811, 0x5f37]);
+  const light = npc => hasTrait(npc, [0x8eab, 0x8efd]);
+  const cautious = npc => hasTrait(npc, [0x614e, 0x91cd]);
+  const foodDrain = npc => (bigEater(npc) ? 14 : 10) + (room.weather === WEATHERS[3] ? 4 : 0);
+  const waterDrain = (npc, zone) => {
+    let drain = zone === 4 ? 18 : zone === 3 ? 8 : 0;
+    if (room.weather === WEATHERS[2] || room.weather === WEATHERS[4]) drain = 0;
+    if (room.weather === WEATHERS[0] && zone === 4) drain = Math.round(drain * 1.5);
+    if (room.weather === WEATHERS[3]) drain = Math.round(drain * 2);
+    return sturdy(npc) ? Math.round(drain * 0.6) : drain;
   };
-  const preyUtility = (npc, prey) => {
-    const chance = calculateFeedChance(npc, prey) / 100;
-    const foodNeed = Math.max(0, 100 - npc.food);
-    const foodWeight = isBigEater(npc) ? 1.45 : isHighMetabolism(npc) ? 1.3 : 0.9;
-    const foodValue = Math.min(prey.food, foodNeed) * foodWeight + Math.max(0, prey.food - foodNeed) * 0.08;
-    const expRequirement = (10 + npc.level * 6) * (isHighMetabolism(npc) ? 0.8 : 1);
-    const levelValue = prey.exp * EXP_GAIN_MULTIPLIER * (200 / expRequirement);
-    return chance * (foodValue + levelValue + 12);
+  const staminaValue = value => Math.min(50, Math.max(0, value)) * 0.7 + Math.max(0, value - 50) * 0.35;
+  const levelsFromExp = (npc, gain) => {
+    let exp = npc.exp + gain, level = npc.level, levels = 0;
+    let needed = getExpReq(level);
+    if (highMetabolism(npc)) needed = Math.round(needed * 0.8);
+    while (exp >= needed && levels < 5) {
+      exp -= needed;
+      level += 1;
+      levels += 1;
+      needed = getExpReq(level);
+      if (highMetabolism(npc)) needed = Math.round(needed * 0.8);
+    }
+    return levels;
   };
-  const zoneUtility = (npc, zone) => {
-    const preyList = PREY_MASTER[zone] || PREY_MASTER[0];
-    const foodAndGrowth = Math.max(...preyList.map(prey => preyUtility(npc, prey)));
-    const nearbyMates = actorsByZone(zone, npc.id).filter(actor => !actor.isPlayer && actor.stage >= 6 && actor.gender !== npc.gender && !room.coopAccepted[actor.id]);
-    const reproductivePriority = npc.food < 35 || npc.water < 40 || npc.hp < 60 ? 0 : 0.8;
-    const matingValue = npc.stage >= 6 && npc.stamina >= 50
-      ? nearbyMates.reduce((best, partner) => Math.max(best, predictedEggCount(npc, partner) * 50 * reproductivePriority), 0)
-      : 0;
-    const waterNeed = Math.max(0, 70 - npc.water);
-    const waterValue = zone <= 1 ? waterNeed * (isHighMetabolism(npc) ? 1.35 : 0.75) : -waterNeed * (isSturdy(npc) ? 0.12 : 0.38);
-    const riskWeight = isCautious(npc) ? 1350 : isLight(npc) ? 520 : isSturdy(npc) ? 650 : 900;
-    const threatBonus = room.predatorThreats && room.predatorThreats[zone] ? 0.18 : 0;
-    const riskCost = (PREDATOR_ZONE_CHANCE[zone] + threatBonus) * riskWeight;
-    const socialValue = npc.personality === PERSONALITIES[0] ? nearbyMates.length * 20 : 0;
-    const killValue = actorsByZone(zone, npc.id).some(target => {
-      const planned = room.actions[target.id];
-      if ((planned && planned.moveZone !== undefined && Number(planned.moveZone) !== zone) || (planned && planned.act === "rest") || room.coopAccepted[target.id]?.type === "huddle") return false;
-      const damage = Math.max(5, Math.min(40, 20 + ((npc.level || 1) - (target.level || 1)) * 3));
-      return target.hp <= damage;
-    }) ? 1800 : 0;
-    return foodAndGrowth + matingValue + killValue + waterValue + socialValue - riskCost - (zone === npc.zone ? 0 : 4);
-  };
-
-  aliveActors.filter(npc => !npc.isPlayer).forEach(npc => {
-    const reachable = reachableZones(npc);
-    const targetZone = reachable.reduce((best, zone) => zoneUtility(npc, zone) > zoneUtility(npc, best) ? zone : best, npc.zone);
-    const localActors = actorsByZone(targetZone, npc.id);
-    const preyList = PREY_MASTER[targetZone] || PREY_MASTER[0];
-    const prey = preyList.slice().sort((a, b) => preyUtility(npc, b) - preyUtility(npc, a))[0];
-    const mateCandidates = localActors
-      .filter(actor => !actor.isPlayer && actor.stage >= 6 && actor.gender !== npc.gender && !room.coopAccepted[actor.id])
-      .sort((a, b) => predictedEggCount(npc, b) - predictedEggCount(npc, a));
-    const killTarget = localActors.find(target => {
-      const planned = room.actions[target.id];
-      if ((planned && planned.moveZone !== undefined && Number(planned.moveZone) !== targetZone) || (planned && planned.act === "rest") || room.coopAccepted[target.id]?.type === "huddle") return false;
-      const damage = Math.max(5, Math.min(40, 20 + ((npc.level || 1) - (target.level || 1)) * 3));
-      return target.hp <= damage;
-    });
-
-    let act = "feed";
-    let targetId = null;
-    const waterThreshold = isHighMetabolism(npc) ? 58 : isSturdy(npc) ? 38 : 46;
-    const shouldRefillWater = npc.water <= waterThreshold && targetZone <= 1;
-    const shouldRest = npc.hp <= 52 || npc.stamina <= (isBigEater(npc) ? 22 : 30);
-    if (shouldRefillWater) {
-      act = "water";
-    } else if (shouldRest) {
-      act = "rest";
-    } else if (killTarget) {
-      act = "attack";
-      targetId = killTarget.id;
-    } else if (npc.stage >= 6 && npc.stamina >= 50 && mateCandidates.length && npc.food > 35 && npc.water > 40 && npc.hp > 60 && !room.coopAccepted[npc.id]) {
-      act = "mate";
-      targetId = mateCandidates[0].id;
-      room.coopAccepted[npc.id] = { partnerId: targetId, initiatorId: npc.id, type: "mate" };
-      room.coopAccepted[targetId] = { partnerId: npc.id, initiatorId: npc.id, type: "mate" };
-    } else if (isCautious(npc) && room.predatorThreats && room.predatorThreats[targetZone]) {
-      act = "rest";
-    } else if (npc.stage >= 5 && npc.personality === PERSONALITIES[0] && localActors.length && npc.food > 55 && npc.water > 55) {
-      act = "call";
-      targetId = localActors[0].id;
+  const simulate = (npc, zone, action, success = true) => {
+    let hp = npc.hp, food = npc.food, water = npc.water, stamina = npc.stamina;
+    let levelPoints = 0, eggsPoints = 0, killPoints = 0;
+    if (action.act === "feed") {
+      stamina = Math.max(0, stamina - 10);
+      if (success) {
+        let gainFood = action.prey.food;
+        let gainExp = Math.round(action.prey.exp * EXP_GAIN_MULTIPLIER);
+        if (bigEater(npc)) { gainFood = Math.round(gainFood * 1.2); gainExp = Math.round(gainExp * 1.2); }
+        food = Math.min(100, food + gainFood);
+        levelPoints = levelsFromExp(npc, gainExp) * 200;
+      }
+    } else if (action.act === "water") {
+      water = 100;
+      stamina = Math.min(100, stamina + 10);
+    } else if (action.act === "rest") {
+      hp = Math.min(100, hp + 20);
+      stamina = Math.min(100, stamina + 35);
+    } else if (action.act === "huddle") {
+      water = Math.min(100, water + 15);
+    } else if (action.act === "mate") {
+      stamina = Math.max(0, stamina - 50);
+      eggsPoints = action.eggs * 50;
+    } else if (action.act === "attack") {
+      killPoints = action.killPoints;
     }
 
-    room.actions[npc.id] = { moveZone: targetZone, act, targetPreyId: prey.id, targetId };
-    const event = room.eventsByActor[npc.id];
+    const drainFood = foodDrain(npc), drainWater = waterDrain(npc, zone);
+    food = Math.max(0, food - drainFood);
+    water = Math.max(0, water - drainWater);
+    let damage = 0;
+    if (food <= 0) damage += highMetabolism(npc) ? 22 : 15;
+    if (water <= 0) damage += highMetabolism(npc) ? 25 : 18;
+    hp -= damage;
+    const metabolismDeath = hp <= 0;
+    let predatorDeath = 0;
+    if (!metabolismDeath && action.act !== "rest" && room.weather !== WEATHERS[4]) {
+      const alerted = room.predatorThreats && room.predatorThreats[zone] === true;
+      const attackChance = alerted ? [0.08, 0.12, 0.20, 0.28, 0.36][zone] : [0.005, 0.008, 0.012, 0.016, 0.02][zone];
+      const zoneCount = living.filter(actor => actor.zone === zone).length;
+      const victimShare = 1 / Math.max(1, Math.ceil(zoneCount * 0.75));
+      const lethalChance = Math.max(0, Math.min(16, 91 - hp)) / 16;
+      predatorDeath = attackChance * victimShare * lethalChance * (light(npc) ? 0.75 : 1);
+    }
+    const deathChance = metabolismDeath ? 1 : Math.min(1, predatorDeath);
+    const respawns = npc.eggs > 0 && npc.stage < 4;
+    let deathPenalty = 0;
+    if (deathChance > 0) {
+      if (respawns) {
+        deathPenalty = deathChance * 200;
+        if (metabolismDeath) { hp = 100; food = 70; water = 100; stamina = 100; levelPoints = 0; }
+      } else {
+        const atRisk = 100 * Math.max(0, turnsLeft - 1) + 1500;
+        deathPenalty = deathChance * atRisk;
+      }
+    }
+    const foodTurns = drainFood ? food / drainFood : 2.5;
+    const waterTurns = drainWater ? water / drainWater : 2.5;
+    const reserve = Math.min(2.5, Math.max(0, foodTurns), Math.max(0, waterTurns)) * 100;
+    const stateValue = reserve + staminaValue(stamina) + Math.min(100, Math.max(0, hp)) * 0.35;
+    const aliveAfterTurn = respawns ? 1 : 1 - deathChance;
+    return stateValue * aliveAfterTurn + levelPoints * (1 - deathChance) + eggsPoints + killPoints - deathPenalty + aliveAfterTurn * 100;
+  };
+  const expectedEggs = affinity => affinity >= 70 ? 53 : affinity >= 40 ? 38 : affinity >= 20 ? 25.5 : 18;
+  const setEventChoice = (npc, personalityIndex) => {
+    const event = room.eventsByActor && room.eventsByActor[npc.id];
     if (event && event.choices && event.choices.length) {
-      const cooperative = npc.personality === PERSONALITIES[0] || isCautious(npc);
-      room.eventChoices[npc.id] = cooperative ? event.choices[0].id : event.choices[event.choices.length - 1].id;
-    } else {
-      room.eventChoices[npc.id] = "none";
+      room.eventChoices[npc.id] = personalityIndex === 1 || personalityIndex === 2
+        ? event.choices[event.choices.length - 1].id : event.choices[0].id;
+    } else room.eventChoices[npc.id] = "none";
+  };
+
+  living.filter(npc => !npc.isPlayer).forEach(npc => {
+    const personality = PERSONALITIES.indexOf(npc.personality);
+    if (room.coopAccepted && room.coopAccepted[npc.id]) {
+      setEventChoice(npc, personality);
+      return;
     }
+    const zones = [npc.zone - 1, npc.zone, npc.zone + 1].filter(zone => zone >= 0 && zone <= 4 && npc.stage >= minStage[zone]);
+    const candidates = [];
+    zones.forEach(zone => {
+      (PREY_MASTER[zone] || PREY_MASTER[0]).forEach(prey => {
+        const chance = calculateFeedChance(npc, prey) / 100;
+        const action = { act: "feed", prey };
+        const expected = chance * simulate(npc, zone, action, true) + (1 - chance) * simulate(npc, zone, action, false);
+        candidates.push({ act: "feed", zone, prey, score: expected, kind: "feed" });
+      });
+      candidates.push({ act: "water", zone, score: simulate(npc, zone, { act: "water" }), kind: "water" });
+      candidates.push({ act: "rest", zone, score: simulate(npc, zone, { act: "rest" }), kind: "rest" });
+      candidates.push({ act: "huddle", zone, score: simulate(npc, zone, { act: "huddle" }), kind: "huddle" });
+      if (npc.stage >= 5) {
+        const nearby = living.filter(target => target.id !== npc.id && target.zone === zone);
+        const callValue = nearby.reduce((total, target) => {
+          if (target.isPlayer || target.stage < 6 || target.gender === npc.gender) return total;
+          const affinity = (npc.affinity && npc.affinity[target.id]) || 0;
+          return total + Math.max(0, expectedEggs(affinity + 5) - expectedEggs(affinity)) * 50 * 0.15;
+        }, 0);
+        if (nearby.length) candidates.push({ act: "call", zone, score: simulate(npc, zone, { act: "call" }) + callValue, kind: "call" });
+      }
+      living.filter(target => target.id !== npc.id && target.zone === zone).forEach(target => {
+        const damage = Math.max(5, Math.min(40, 20 + ((npc.level || 1) - (target.level || 1)) * 3));
+        if (target.hp <= damage) {
+          const killPoints = 2000 * 0.5; // Do not inspect the target's unsubmitted action.
+          candidates.push({ act: "attack", zone, targetId: target.id, score: simulate(npc, zone, { act: "attack", killPoints }), kind: "attack" });
+        }
+      });
+      if (npc.stage >= 6 && npc.stamina >= 50) {
+        living.filter(target => !target.isPlayer && target.id !== npc.id && target.zone === zone && target.stage >= 6 && target.gender !== npc.gender && !(room.coopAccepted && room.coopAccepted[target.id]))
+          .forEach(target => {
+            const affinity = (npc.affinity && npc.affinity[target.id]) || 0;
+            const eggs = expectedEggs(affinity);
+            candidates.push({ act: "mate", zone, targetId: target.id, eggs, score: simulate(npc, zone, { act: "mate", eggs }), kind: "mate" });
+          });
+      }
+    });
+    candidates.forEach(candidate => {
+      if (personality === 0 && candidate.kind === "mate") candidate.score *= 1.025;
+      if (personality === 1 && candidate.kind === "feed") candidate.score *= 1.02;
+      if (personality === 2 && candidate.kind === "attack") candidate.score *= 1.025;
+      if (personality === 3 && (candidate.kind === "rest" || candidate.kind === "water")) candidate.score *= 1.025;
+      if (cautious(npc) && candidate.kind === "rest" && room.predatorThreats && room.predatorThreats[candidate.zone]) candidate.score *= 1.03;
+    });
+    candidates.sort((a, b) => b.score - a.score);
+    const best = candidates[0];
+    const window = best ? Math.max(10, Math.abs(best.score) * 0.025) : 0;
+    const nearBest = candidates.filter(candidate => best && candidate.score >= best.score - window);
+    const chosen = nearBest[Math.floor(Math.random() * nearBest.length)] || { act: "rest", zone: npc.zone };
+    room.actions[npc.id] = { moveZone: chosen.zone, act: chosen.act, targetPreyId: chosen.prey && chosen.prey.id, targetId: chosen.targetId || null };
+    if (chosen.act === "mate" && chosen.targetId) {
+      room.coopAccepted[npc.id] = { partnerId: chosen.targetId, initiatorId: npc.id, type: "mate" };
+      room.coopAccepted[chosen.targetId] = { partnerId: npc.id, initiatorId: npc.id, type: "mate" };
+    }
+    setEventChoice(npc, personality);
   });
 };
 server.listen(PORT, () => {

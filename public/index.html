@@ -1750,7 +1750,7 @@ function renderResult(state) {
     box.innerHTML += `
       <div class="rank-row">
         <span><strong>${idx + 1}位</strong> ${r.isPlayer ? 'PL' : 'NPC'} Lv.${r.level} ${r.name} (${r.gender}) [${r.alive ? '生存' : '死亡'}]</span>
-        <span>卵: ${r.offspring}個 / <strong>${r.score}pt</strong></span>
+        <span>卵: ${r.offspring}個 / <strong>${r.score}pt</strong> / キルボーナス: ${r.killBonusScore || 0}pt</span>
       </div>
     `;
   });
