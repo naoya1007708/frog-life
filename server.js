@@ -47,106 +47,129 @@ const PREY_MASTER = {
 };
 
 // ==========================================
-// イベントマスター（単独イベント＆ペアイベント）
+// イベントマスター（すべて2択制）
 // ==========================================
 const EVENTS_MASTER = {
   solo: [
+    // 良いイベント（方針の2択）
     {
       id: "solo_sunbath",
       title: "【心地よい木漏れ日】",
-      desc: "温かな光が差し込み、冷えた体を心地よく温めてくれる。",
+      desc: "温かな光が差し込んでいる。どう過ごす？",
       choices: [
-        { id: "rest", text: "光を浴びてじっと休む (HP+20, 気力+30)" },
-        { id: "ignore", text: "油断せず警戒を続ける" }
+        { id: "rest", text: "光を浴びてじっと休む (HP+25, 気力+35)" },
+        { id: "search", text: "温まった体で周囲を探索 (満腹+20, EXP+15)" }
       ],
       resolve: (actor, choice) => {
         if (choice === "rest") {
-          actor.hp = Math.min(100, actor.hp + 20);
-          actor.stamina = Math.min(100, actor.stamina + 30);
-          return "木漏れ日を浴びて気力と体力が回復した！（HP+20, 気力+30）";
+          actor.hp = Math.min(100, actor.hp + 25);
+          actor.stamina = Math.min(100, actor.stamina + 35);
+          return "木漏れ日の中で体を休め、HPと気力が大きく回復した！";
+        } else {
+          actor.food = Math.min(100, actor.food + 20);
+          actor.exp += 15;
+          return "活発に動き回り、小さな虫を見つけて捕食した！（満腹+20, EXP+15）";
         }
-        return "警戒を怠らず、周囲に目を配った。";
       }
     },
     {
       id: "solo_drift_food",
       title: "【流れてきたごちそう】",
-      desc: "目の前に栄養満点な昆虫の脱皮殻が引っかかっている！",
+      desc: "栄養満点な大物の脱皮殻が漂着した！",
       choices: [
-        { id: "eat", text: "すばやく平らげる (満腹+25, EXP+12)" },
-        { id: "pass", text: "罠を警戒して見送る" }
+        { id: "meat", text: "栄養たっぷりの肉厚部を食べる (満腹+30, HP+10)" },
+        { id: "soft", text: "消化しやすい薄皮を食べる (EXP+20, 気力+20)" }
       ],
       resolve: (actor, choice) => {
-        if (choice === "eat") {
-          actor.food = Math.min(100, actor.food + 25);
-          actor.exp += 12;
-          return "栄養満点のごちそうを独り占めした！（満腹+25, EXP+12）";
+        if (choice === "meat") {
+          actor.food = Math.min(100, actor.food + 30);
+          actor.hp = Math.min(100, actor.hp + 10);
+          return "ごちそうを平らげて腹を満たした！（満腹+30, HP+10）";
+        } else {
+          actor.exp += 20;
+          actor.stamina = Math.min(100, actor.stamina + 20);
+          return "すばやくエネルギーを吸収し、体が引き締まった！（EXP+20, 気力+20）";
         }
-        return "怪しい餌には手を出さず、安全を優先した。";
       }
     },
     {
       id: "solo_spring_water",
       title: "【清らかな湧き水】",
-      desc: "岩肌から冷たく澄んだ清水が湧き出しているのを発見した。",
+      desc: "澄んだ冷たい湧き水を見つけた！",
       choices: [
-        { id: "drink", text: "思い切り水を飲む (水分全快, HP+10)" }
-      ],
-      resolve: (actor) => {
-        actor.water = 100;
-        actor.hp = Math.min(100, actor.hp + 10);
-        return "冷たい清水で喉を潤し、水分が全快した！（HP+10）";
-      }
-    },
-    {
-      id: "solo_mud_trap",
-      title: "【泥のぬかるみ】",
-      desc: "足元の泥が予想以上に深く、体がズブズブと沈み込んでいく！",
-      choices: [
-        { id: "struggle", text: "力づくで脱出を試みる (気力-25, 満腹-15)" },
-        { id: "calm", text: "息を整えて慎重に抜ける (気力-15, ダメージ10)" }
+        { id: "drink", text: "がぶ飲みして皮膚を潤す (水分全快, HP+15)" },
+        { id: "bathe", text: "冷水に浸かってリフレッシュ (水分+40, 気力全快)" }
       ],
       resolve: (actor, choice) => {
-        if (choice === "struggle") {
-          actor.stamina = Math.max(0, actor.stamina - 25);
-          actor.food = Math.max(0, actor.food - 15);
-          return "泥からもがいて抜け出したが、大量のエネルギーを消費した。";
+        if (choice === "drink") {
+          actor.water = 100;
+          actor.hp = Math.min(100, actor.hp + 15);
+          return "清水で水分が全快し、皮膚の傷も癒えた！（水分100%, HP+15）";
         } else {
+          actor.water = Math.min(100, actor.water + 40);
+          actor.stamina = 100;
+          return "冷水で疲れが一気に吹き飛び、気力が全快した！（気力100%）";
+        }
+      }
+    },
+    // 悪いイベント（デメリットの2択）
+    {
+      id: "solo_mud_trap",
+      title: "【底なしのぬかるみ】",
+      desc: "足が深い泥に飲み込まれた！脱出の代償を選べ。",
+      choices: [
+        { id: "muscle", text: "力づくで強引に引き抜く (気力-35, 満腹-20)" },
+        { id: "scrape", text: "皮膚の擦り傷覚悟で脱出 (HP-20, 気力-15)" }
+      ],
+      resolve: (actor, choice) => {
+        if (choice === "muscle") {
+          actor.stamina = Math.max(0, actor.stamina - 35);
+          actor.food = Math.max(0, actor.food - 20);
+          return "強引に脱出したが、激しい体力とカロリーを消耗した。（気力-35, 満腹-20）";
+        } else {
+          actor.hp = Math.max(1, actor.hp - 20);
           actor.stamina = Math.max(0, actor.stamina - 15);
-          actor.hp = Math.max(1, actor.hp - 10);
-          return "皮膚を擦りむきながらも、なんとかぬかるみから脱出した。（HP-10）";
+          return "皮膚を強く擦りむきながら脱出した。（HP-20, 気力-15）";
         }
       }
     },
     {
       id: "solo_gust_wind",
-      title: "【激しい突風】",
-      desc: "池を吹き抜ける強風が体を激しく打ちつける！",
+      title: "【乾いた激しい突風】",
+      desc: "突風が体温と水分を奪いに襲いかかる！どう耐える？",
       choices: [
-        { id: "hold", text: "岩にしがみついて耐える (気力-20)" },
-        { id: "curl", text: "体を丸めてやり過ごす (水分-20)" }
+        { id: "grip", text: "岩にしがみついて踏ん張る (気力-30, HP-10)" },
+        { id: "endure", text: "丸くなって乾燥風を浴びる (水分-35, 満腹-15)" }
       ],
       resolve: (actor, choice) => {
-        if (choice === "hold") {
-          actor.stamina = Math.max(0, actor.stamina - 20);
-          return "強風に踏ん張って耐え抜いたが、足腰が疲弊した。（気力-20）";
+        if (choice === "grip") {
+          actor.stamina = Math.max(0, actor.stamina - 30);
+          actor.hp = Math.max(1, actor.hp - 10);
+          return "突風に耐え抜いたが、体がきしみ傷を負った。（気力-30, HP-10）";
         } else {
-          actor.water = Math.max(0, actor.water - 20);
-          return "風で皮膚の水分が一気に蒸発してしまった！（水分-20）";
+          actor.water = Math.max(0, actor.water - 35);
+          actor.food = Math.max(0, actor.food - 15);
+          return "風に煽られて皮膚が一気に乾燥してしまった！（水分-35, 満腹-15）";
         }
       }
     },
     {
       id: "solo_leech",
-      title: "【潜む寄生ヒル】",
-      desc: "ぬかるみに潜んでいたヒルが足に吸い付いて血を吸おうとしている！",
+      title: "【吸血ヒルとの遭遇】",
+      desc: "厄介なヒルが皮膚に食らいついた！どう対処する？",
       choices: [
-        { id: "shake", text: "力いっぱい振り払う (HP-15, 気力-10)" }
+        { id: "rip", text: "皮膚ごと無理やり引き剥がす (HP-25の出血)" },
+        { id: "rub", text: "泥を擦り付けて時間をかけ落とす (気力-25, 満腹-20)" }
       ],
-      resolve: (actor) => {
-        actor.hp = Math.max(1, actor.hp - 15);
-        actor.stamina = Math.max(0, actor.stamina - 10);
-        return "ヒルをなんとか引き剥がしたが、皮膚に傷を負った（HP-15）。";
+      resolve: (actor, choice) => {
+        if (choice === "rip") {
+          actor.hp = Math.max(1, actor.hp - 25);
+          return "ヒルを引きちぎったが、皮膚が裂けて血が滲んだ！（HP-25）";
+        } else {
+          actor.stamina = Math.max(0, actor.stamina - 25);
+          actor.food = Math.max(0, actor.food - 20);
+          return "泥でヒルを擦り落としたが、ひどく疲弊した。（気力-25, 満腹-20）";
+        }
       }
     }
   ],
@@ -165,8 +188,8 @@ const EVENTS_MASTER = {
           a2.food = Math.min(100, a2.food + 15);
           addAffinity(a1, a2, 15);
           return {
-            log1: `${a2.name} と仲良く餌を分け合った！（満腹+15, 親密度+15）`,
-            log2: `${a1.name} と仲良く餌を分け合った！（満腹+15, 親密度+15）`
+            log1: `${a2.name} と仲良く分け合った！（満腹+15, 親密度+15）`,
+            log2: `${a1.name} と仲良く分け合った！（満腹+15, 親密度+15）`
           };
         } else if (c1 === "steal" && c2 === "share") {
           a1.food = Math.min(100, a1.food + 30);
@@ -246,16 +269,16 @@ function createActor(id, name, isPlayer) {
     trait,
     personality,
     level: 1,
-    stage: 1, // 1:オタマ, 2:後足, 3:前足, 4:変態期, 5:子ガエル, 6:成体
+    stage: 1,
     exp: 0,
-    eggs: 2, // 残機
+    eggs: 2,
     hp: 100,
     food: 80,
     water: 100,
     stamina: 100,
     length: 1.0,
     weight: 0.5,
-    zone: 0, // ①水底からスタート
+    zone: 0,
     alive: true,
     ready: false,
     offspringCount: 0,
@@ -307,6 +330,7 @@ wss.on("connection", (ws) => {
             eventChoices: {},
             coopRequests: {},
             coopAccepted: {},
+            huddlingActors: new Set(),
             eventsByZone: {},
             pairTargets: {},
             turnSummaries: {},
@@ -326,7 +350,6 @@ wss.on("connection", (ws) => {
       else if (data.type === "START_GAME" && myRoomId) {
         const room = rooms[myRoomId];
         if (room && room.hostId === myActorId && room.status === "waiting") {
-          // NPC補填（計25匹）
           const currentCount = Object.keys(room.actors).length;
           const npcNames = ["アオ", "ミドリ", "クロ", "シロ", "チビ", "ゴン", "モモ", "タマ", "ハル", "ナツ", "アキ", "フユ", "カゲ", "ツユ", "レン", "サクラ", "スミレ", "カエデ", "ヤマト", "ムサシ", "ソラ", "カイ", "リク", "シン"];
           for (let i = currentCount; i < TOTAL_FROGS; i++) {
@@ -359,9 +382,11 @@ wss.on("connection", (ws) => {
               };
               broadcastState(room);
             } else {
-              // NPCの受託判定
               const aff = (targetActor.affinity && targetActor.affinity[fromActor.id]) || 0;
               let baseChance = targetActor.personality === "温厚" ? 50 : (targetActor.personality === "利己" ? 20 : 35);
+              // 同性同士なら受諾確率が少し上昇（バディ意識）
+              if (fromActor.gender === targetActor.gender) baseChance += 10;
+
               let chance = baseChance + (aff * 0.5);
               if (data.coopType === "huddle" && targetActor.water <= 50) chance += 20;
               if (data.coopType === "feed" && targetActor.food <= 50) chance += 20;
@@ -413,7 +438,6 @@ wss.on("connection", (ws) => {
           room.eventChoices[myActorId] = data.eventChoice || "none";
           if (room.actors[myActorId]) room.actors[myActorId].ready = true;
 
-          // 全プレイヤーが確定したかチェック
           const alivePlayers = Object.values(room.actors).filter(a => a.isPlayer && a.alive);
           const allReady = alivePlayers.every(p => p.ready);
           if (allReady) {
@@ -450,13 +474,12 @@ function setupTurnEvents(room) {
   for (let z = 0; z < 5; z++) {
     const aliveInZone = Object.values(room.actors).filter(a => a.alive && a.zone === z);
 
-    // ★修正：同エリアに自分1匹しかいない場合は必ず単独イベント！
+    // 同エリアに1匹しかいない場合は必ず単独イベント
     if (aliveInZone.length <= 1) {
       const soloList = EVENTS_MASTER.solo;
       const ev = soloList[Math.floor(Math.random() * soloList.length)];
       room.eventsByZone[z] = { ...ev };
     } else {
-      // 2匹以上いるなら65%でペアイベント
       if (Math.random() < 0.65) {
         const pairList = EVENTS_MASTER.pair;
         const ev = pairList[Math.floor(Math.random() * pairList.length)];
@@ -475,9 +498,6 @@ function setupTurnEvents(room) {
   }
 }
 
-// ==========================================
-// ターンタイマー管理
-// ==========================================
 function startTurnTimer(room) {
   if (room.timer) clearInterval(room.timer);
   room.timeLeft = TURN_DURATION_SEC;
@@ -494,7 +514,7 @@ function startTurnTimer(room) {
 }
 
 // ==========================================
-// ターン解決処理（コアルール）
+// ターン解決処理
 // ==========================================
 function resolveTurn(room) {
   if (room.timer) clearInterval(room.timer);
@@ -502,8 +522,8 @@ function resolveTurn(room) {
   const turnLogs = [];
   const finishedTurn = room.turn;
   room.turnSummaries = {};
+  room.huddlingActors = new Set(); // カエル団子成功者の完全防御リスト
 
-  // ① 全カエルのサマリー初期化
   Object.values(room.actors).forEach(a => {
     room.turnSummaries[a.id] = {
       turn: finishedTurn,
@@ -515,10 +535,9 @@ function resolveTurn(room) {
     };
   });
 
-  // ② NPCの行動・イベント選択決定
   decideNpcActions(room);
 
-  // ③ 移動処理
+  // 移動処理
   Object.values(room.actors).filter(a => a.alive).forEach(a => {
     const actData = room.actions[a.id];
     if (actData && actData.moveZone !== undefined) {
@@ -530,25 +549,23 @@ function resolveTurn(room) {
     }
   });
 
-  // ④ 行動解決（捕食・団子・求愛・攻撃など）
+  // 行動解決（鳴く・協力捕食・カエル団子・攻撃・交配等）
   resolveActions(room, turnLogs);
 
-  // ⑤ イベント解決（単独イベント＆ペアイベント）
+  // イベント解決（単独2択＆ペア）
   resolveEvents(room, turnLogs);
 
-  // ⑥ 代謝・環境変化（乾燥・天候・飢餓）
+  // 代謝・環境変化
   resolveMetabolism(room, turnLogs);
 
-  // ⑦ 天敵判定（上に行くほど危険・最大30%・1匹のみ大ダメージ）
+  // 天敵判定（カエル団子中の個体は除外・最大30%・1匹集中急襲）
   resolvePredators(room, turnLogs);
 
-  // ⑧ 成長・変態・レベルアップ
+  // 成長・変態
   resolveGrowth(room, turnLogs);
 
-  // ログの追加
   room.logs = [...turnLogs, ...room.logs].slice(0, 50);
 
-  // ⑨ ゲーム終了チェック
   const aliveFrogs = Object.values(room.actors).filter(a => a.alive);
   if (room.turn >= TOTAL_TURNS || aliveFrogs.length <= 1) {
     room.status = "finished";
@@ -557,7 +574,6 @@ function resolveTurn(room) {
     return;
   }
 
-  // ⑩ 次ターンの準備
   room.turn++;
   room.weather = room.forecast;
   room.forecast = WEATHERS[Math.floor(Math.random() * WEATHERS.length)];
@@ -572,11 +588,10 @@ function resolveTurn(room) {
   broadcastState(room);
 }
 
-// NPCの行動決定
+// NPCの行動決定（同性の場合の裏切り減少ロジック）
 function decideNpcActions(room) {
   Object.values(room.actors).filter(a => !a.isPlayer && a.alive).forEach(npc => {
     let targetZone = npc.zone;
-    // 水分が低ければ水辺へ、満腹が低ければ餌の多い場所へ
     if (npc.water < 40 && npc.zone > 1) targetZone = Math.max(0, npc.zone - 1);
     else if (npc.food < 40 && npc.zone < 4) {
       const nextZ = npc.zone + 1;
@@ -602,10 +617,26 @@ function decideNpcActions(room) {
     // イベント選択肢決定
     const ev = room.eventsByZone[targetZone];
     if (ev && ev.choices && ev.choices.length > 0) {
-      if (npc.personality === "利己" || npc.personality === "獰猛") {
-        room.eventChoices[npc.id] = ev.choices[ev.choices.length - 1].id;
+      if (ev.type === "pair") {
+        const partnerId = room.pairTargets[npc.id];
+        const partner = room.actors[partnerId];
+        let stealChance = (npc.personality === "利己" || npc.personality === "獰猛") ? 0.7 : 0.2;
+
+        // ★同性の場合、ペアイベントでの裏切り確率が減少（バディ補正）
+        if (partner && partner.gender === npc.gender) {
+          stealChance -= 0.25;
+        }
+        const aff = partner && partner.affinity && partner.affinity[npc.id] ? partner.affinity[npc.id] : 0;
+        stealChance -= (aff * 0.005); // 親密度が高いほど裏切らない
+
+        if (Math.random() < Math.max(0.05, stealChance)) {
+          room.eventChoices[npc.id] = "steal";
+        } else {
+          room.eventChoices[npc.id] = "share";
+        }
       } else {
-        room.eventChoices[npc.id] = ev.choices[0].id;
+        // 単独イベントの2択
+        room.eventChoices[npc.id] = Math.random() < 0.5 ? ev.choices[0].id : ev.choices[1].id;
       }
     } else {
       room.eventChoices[npc.id] = "none";
@@ -613,13 +644,11 @@ function decideNpcActions(room) {
   });
 }
 
-// 捕食成功率計算（気力ペナルティ反映）
 function calculateFeedChance(actor, prey) {
   const staRatio = Math.max(0.1, (actor.stamina || 100) / 100);
   const myPower = ((actor.length || 1) * 5) + ((actor.weight || 0.5) * 3) + ((actor.stamina || 100) * 0.25);
   let baseChance = 60 + (myPower - prey.diff) * 2;
 
-  // 気力が50%未満なら疲労ペナルティ
   if (staRatio < 0.5) {
     baseChance -= Math.round((0.5 - staRatio) * 40);
   }
@@ -632,6 +661,18 @@ function calculateFeedChance(actor, prey) {
 // 行動解決
 function resolveActions(room, logs) {
   const coopDone = new Set();
+
+  // ① カエル団子の事前成立判定（完全防御の付与）
+  Object.values(room.actors).filter(a => a.alive).forEach(a => {
+    const actData = room.actions[a.id];
+    if (actData && actData.act === "huddle" && actData.targetId) {
+      const partner = room.actors[actData.targetId];
+      if (partner && partner.alive && partner.zone === a.zone) {
+        room.huddlingActors.add(a.id);
+        room.huddlingActors.add(partner.id);
+      }
+    }
+  });
 
   Object.values(room.actors).filter(a => a.alive).forEach(a => {
     const actData = room.actions[a.id] || { act: "rest" };
@@ -652,7 +693,14 @@ function resolveActions(room, logs) {
 
       const p1Power = (a.length * 5) + (a.weight * 3) + (a.stamina * 0.25);
       const p2Power = (partner.length * 5) + (partner.weight * 3) + (partner.stamina * 0.25);
-      let chance = Math.max(30, Math.min(95, Math.round(60 + ((p1Power + p2Power) - prey.diff) * 2)));
+      let chance = 60 + ((p1Power + p2Power) - prey.diff) * 2;
+
+      // ★同性同士の協力捕食成功率アップボーナス（+10%）
+      const isSameGender = (a.gender === partner.gender);
+      if (isSameGender) {
+        chance += 10;
+      }
+      chance = Math.max(30, Math.min(95, Math.round(chance)));
 
       if (Math.random() * 100 < chance) {
         const halfFood = Math.round(prey.food * 0.55);
@@ -661,9 +709,10 @@ function resolveActions(room, logs) {
         partner.food = Math.min(100, partner.food + halfFood); partner.exp += halfExp;
         addAffinity(a, partner, 8);
 
-        room.turnSummaries[a.id].action = `【協力捕食成功！】${partner.name} と ${prey.name} を山分け！（満腹+${halfFood}, EXP+${halfExp}, 親密度+8）`;
-        room.turnSummaries[partner.id].action = `【協力捕食成功！】${a.name} と ${prey.name} を山分け！（満腹+${halfFood}, EXP+${halfExp}, 親密度+8）`;
-        logs.push(`🤝 【協力狩り成功！】${a.name} と ${partner.name} が ${prey.name} を捕獲して山分け！`);
+        const bonusTxt = isSameGender ? "【同性バディ連携+10%発動！】" : "";
+        room.turnSummaries[a.id].action = `🤝 【協力捕食成功！】${partner.name} と ${prey.name} を山分け！${bonusTxt}（満腹+${halfFood}, EXP+${halfExp}, 親密度+8）`;
+        room.turnSummaries[partner.id].action = `🤝 【協力捕食成功！】${a.name} と ${prey.name} を山分け！${bonusTxt}（満腹+${halfFood}, EXP+${halfExp}, 親密度+8）`;
+        logs.push(`🤝 【協力狩り成功！】${a.name} と ${partner.name} が ${prey.name} を捕獲して山分け！${bonusTxt}`);
       } else {
         room.turnSummaries[a.id].action = `【協力捕食失敗】${partner.name} と挑んだが、${prey.name} に逃げられた。`;
         room.turnSummaries[partner.id].action = `【協力捕食失敗】${a.name} と挑んだが、${prey.name} に逃げられた。`;
@@ -692,53 +741,74 @@ function resolveActions(room, logs) {
       }
     }
 
-    // ③ 水を飲む
+    // ③ 新行動：鳴く（協力を求める・親密度+3）
+    else if (act === "croak") {
+      a.stamina = Math.max(0, a.stamina - 8);
+      const target = room.actors[actData.targetId];
+      if (target && target.alive && target.zone === a.zone) {
+        addAffinity(a, target, 3);
+        room.turnSummaries[a.id].action = `📢 【鳴く】${target.name} に向けて共鳴するように鳴き声を響かせた！（親密度+3, 気力-8）`;
+        room.turnSummaries[target.id].event = `📢 ${a.name} から親愛の鳴き声が届いた。（親密度+3）`;
+        logs.push(`📢 ${a.name} が ${target.name} に向けて協調の鳴き声を響かせた。`);
+      } else {
+        room.turnSummaries[a.id].action = "📢 【鳴く】周囲に響き渡る声で鳴いたが、届く仲間がいなかった。（気力-8）";
+      }
+    }
+
+    // ④ 水を飲む
     else if (act === "water") {
       a.water = 100;
       a.stamina = Math.min(100, a.stamina + 10);
       room.turnSummaries[a.id].action = "【水分補給】喉を潤し、水分を全快にした。";
     }
 
-    // ④ 休む・隠れる
+    // ⑤ 休む・隠れる
     else if (act === "rest") {
       a.hp = Math.min(100, a.hp + 20);
       a.stamina = Math.min(100, a.stamina + 35);
       room.turnSummaries[a.id].action = "【休息】物陰でじっと休み、HPと気力を回復した。（HP+20, 気力+35）";
     }
 
-    // ⑤ 見張り
+    // ⑥ 見張り
     else if (act === "watch") {
       a.stamina = Math.max(0, a.stamina - 15);
       room.turnSummaries[a.id].action = "【見張り】周囲の警戒に集中し、天敵の接近に目を光らせた。";
     }
 
-    // ⑥ カエル団子
+    // ⑦ カエル団子（完全防御付与）
     else if (act === "huddle") {
       const partner = room.actors[actData.targetId];
       if (partner && partner.alive && partner.zone === a.zone) {
         a.water = Math.min(100, a.water + 25);
         partner.water = Math.min(100, partner.water + 25);
         addAffinity(a, partner, 8);
-        room.turnSummaries[a.id].action = `【カエル団子】${partner.name} と身を寄せ合って保湿した。（水分+25, 親密度+8）`;
+        room.turnSummaries[a.id].action = `🛡️ 【カエル団子成立！】${partner.name} と密着して保湿＆完全防御！（水分+25, 親密度+8 / 天敵・他者攻撃を無効化）`;
       } else {
         a.water = Math.min(100, a.water + 15);
         room.turnSummaries[a.id].action = "【カエル団子】相手が見つからず、一人で体を丸めて保湿した。";
       }
     }
 
-    // ⑦ 攻撃
+    // ⑧ 攻撃（カエル団子による無効化チェック）
     else if (act === "attack") {
       const target = room.actors[actData.targetId];
       if (target && target.alive && target.zone === a.zone) {
-        target.hp -= 20;
-        addAffinity(a, target, -30);
-        room.turnSummaries[a.id].action = `【攻撃】${target.name} に体当たりしてダメージを与えた！（親密度-30）`;
-        room.turnSummaries[target.id].danger = `${a.name} から不意打ち攻撃を受け、HP-20のダメージ！`;
-        logs.push(`⚔️ ${a.name} が ${target.name} を攻撃！険悪な空気が流れた。`);
+        // ★相手がカエル団子中なら完全防御される
+        if (room.huddlingActors.has(target.id)) {
+          room.turnSummaries[a.id].action = `【攻撃失敗】${target.name} はカエル団子で密集して防御していたため攻撃が弾かれた！`;
+          room.turnSummaries[target.id].danger = `${a.name} から攻撃を受けたが、カエル団子の結束でノーダメージに抑え込んだ！`;
+          logs.push(`🛡️ ${a.name} が ${target.name} を攻撃したが、カエル団子の防御に弾かれた！`);
+        } else {
+          target.hp -= 20;
+          addAffinity(a, target, -30);
+          room.turnSummaries[a.id].action = `【攻撃】${target.name} に体当たりしてダメージを与えた！（親密度-30）`;
+          room.turnSummaries[target.id].danger = `${a.name} から不意打ち攻撃を受け、HP-20のダメージ！`;
+          logs.push(`⚔️ ${a.name} が ${target.name} を攻撃！険悪な空気が流れた。`);
+        }
       }
     }
 
-    // ⑧ 求愛・繁殖
+    // ⑨ 求愛・繁殖
     else if (act === "mate") {
       const target = room.actors[actData.targetId];
       if (a.stage >= 6 && target && target.alive && target.zone === a.zone && target.stage >= 6 && target.gender !== a.gender) {
@@ -774,7 +844,6 @@ function resolveEvents(room, logs) {
 
     const aliveInZone = Object.values(room.actors).filter(a => a.alive && a.zone === z);
 
-    // ペアイベント解決
     if (ev.type === "pair" && ev.resolvePair) {
       aliveInZone.forEach(a => {
         const pId = room.pairTargets[a.id];
@@ -793,10 +862,9 @@ function resolveEvents(room, logs) {
       });
     }
 
-    // 単独イベント解決
     aliveInZone.forEach(a => {
       if (!resolvedPair.has(a.id) && ev.resolve) {
-        const c = room.eventChoices[a.id] || "rest";
+        const c = room.eventChoices[a.id] || (ev.choices ? ev.choices[0].id : "none");
         const msg = ev.resolve(a, c);
         room.turnSummaries[a.id].event = msg;
       }
@@ -804,25 +872,22 @@ function resolveEvents(room, logs) {
   }
 }
 
-// 代謝・環境変化
+// 代謝処理
 function resolveMetabolism(room, logs) {
   Object.values(room.actors).filter(a => a.alive).forEach(a => {
-    // 満腹度消費
     let foodDrain = a.trait === "大食漢" ? 14 : 10;
     if (room.weather === "日照り") foodDrain += 4;
     a.food = Math.max(0, a.food - foodDrain);
 
-    // 水分消費
     let waterDrain = 0;
-    if (a.zone === 4) waterDrain = 18; // 草むら
-    else if (a.zone === 3) waterDrain = 8; // 水際
+    if (a.zone === 4) waterDrain = 18;
+    else if (a.zone === 3) waterDrain = 8;
     if (room.weather === "雨" || room.weather === "豪雨") waterDrain = 0;
     if (room.weather === "快晴" && a.zone === 4) waterDrain = Math.round(waterDrain * 1.5);
     if (room.weather === "日照り") waterDrain = Math.round(waterDrain * 2);
     if (a.trait === "頑強") waterDrain = Math.round(waterDrain * 0.6);
     a.water = Math.max(0, a.water - waterDrain);
 
-    // 飢餓・乾燥ダメージ
     let metaDamage = 0;
     if (a.food <= 0) metaDamage += (a.trait === "高代謝" ? 22 : 15);
     if (a.water <= 0) metaDamage += (a.trait === "高代謝" ? 25 : 18);
@@ -839,33 +904,35 @@ function resolveMetabolism(room, logs) {
   });
 }
 
-// 天敵判定（ゾーン別確率・最大30%・1匹のみ大ダメージ）
+// 天敵判定（カエル団子中の個体は除外・最大30%・1匹集中急襲）
 function resolvePredators(room, logs) {
   if (room.weather === "豪雨") return;
 
   const ZONE_PREDATOR_CHANCE = {
-    0: 0.05, // ①水底 (5%)
-    1: 0.10, // ②水中 (10%)
-    2: 0.18, // ③水面 (18%)
-    3: 0.24, // ④水際 (24%)
-    4: 0.30  // ⑤草むら (30%)
+    0: 0.05, 1: 0.10, 2: 0.18, 3: 0.24, 4: 0.30
   };
   const PREDATOR_NAMES = ["泥底の巨大ヤゴ", "水中の肉食魚", "空からのアオサギ", "水際のイタチ", "草むらのヘビ"];
 
   for (let z = 0; z < 5; z++) {
     const chance = ZONE_PREDATOR_CHANCE[z];
     if (Math.random() < chance) {
-      const candidates = Object.values(room.actors).filter(a => a.alive && a.zone === z);
-      if (candidates.length === 0) continue;
+      // ★カエル団子で身を守っているカエルは天敵のターゲットから除外！
+      const candidates = Object.values(room.actors).filter(a => a.alive && a.zone === z && !room.huddlingActors.has(a.id));
+      if (candidates.length === 0) {
+        // エリア内にいたが全員団子中だった場合
+        const huddlers = Object.values(room.actors).filter(a => a.alive && a.zone === z);
+        if (huddlers.length > 0) {
+          logs.push(`🛡️ 【天敵回避！】${PREDATOR_NAMES[z]} が飛来したが、カエル団子の擬態・結束に欺かれ立ち去った！`);
+        }
+        continue;
+      }
 
-      // 見張りチェック
       const watcher = candidates.find(a => room.actions[a.id] && room.actions[a.id].act === "watch");
       if (watcher) {
         logs.push(`🛡️ 【天敵撃退！】${watcher.name} の見張りにより、${PREDATOR_NAMES[z]} の接近を察知し全員が退避した！`);
         continue;
       }
 
-      // ★同じエリアに複数いても「1匹だけ」が襲われる
       const victim = candidates[Math.floor(Math.random() * candidates.length)];
 
       if (victim.trait === "身軽" && Math.random() < 0.25) {
@@ -873,7 +940,6 @@ function resolvePredators(room, logs) {
         continue;
       }
 
-      // 大ダメージ（HP-75〜90）
       const damage = Math.floor(75 + Math.random() * 16);
       victim.hp -= damage;
       logs.push(`🚨 【天敵急襲！】${victim.name} が ${PREDATOR_NAMES[z]} に襲われ、${damage} の致命傷を負った！`);
@@ -889,9 +955,8 @@ function resolvePredators(room, logs) {
   }
 }
 
-// 死亡・リスポーン処理（親密仲間の訃報＆2回目死亡バグ完全修正）
+// 死亡・リスポーン処理
 function handleDeath(room, actor, reason, logs) {
-  // ① 親密度1以上の仲間に訃報通知
   Object.values(room.actors).filter(other => other.alive && other.id !== actor.id).forEach(other => {
     const aff = (other.affinity && other.affinity[actor.id]) || 0;
     if (aff >= 1) {
@@ -903,11 +968,10 @@ function handleDeath(room, actor, reason, logs) {
     }
   });
 
-  // ② 残機制チェック（Lv.1〜6 かつ 残機あり）
   if (actor.eggs > 0 && actor.stage < 4) {
     actor.eggs -= 1;
     actor.level = Math.max(1, actor.level - 1);
-    actor.exp = 0; // ★重要：EXPを0にリセットして即座のレベルアップを完全阻止！
+    actor.exp = 0; // EXPリセット
 
     actor.stage = getStageByLevel(actor.level);
     actor.length = +(1.0 + (actor.level - 1) * 0.35).toFixed(1);
@@ -917,7 +981,7 @@ function handleDeath(room, actor, reason, logs) {
     actor.food = 70;
     actor.water = 100;
     actor.stamina = 100;
-    actor.zone = 0; // ①水底へリスポーン
+    actor.zone = 0;
     actor.alive = true;
 
     logs.push(`🥚 【転生】${actor.name} は卵ストックを消費して水底から復活した（Lv.${actor.level}に出遅れ / 残機:${actor.eggs}）`);
@@ -925,7 +989,6 @@ function handleDeath(room, actor, reason, logs) {
       room.turnSummaries[actor.id].danger = `${reason}により死亡したが、卵の残機で水底からリスポーンした（Lv.${actor.level}）。`;
     }
   } else {
-    // 永久死亡
     actor.alive = false;
     actor.hp = 0;
     logs.push(`💀 【永久死亡】${actor.name} は力尽き、池の底へと沈んでいった……（${reason}）`);
@@ -935,7 +998,7 @@ function handleDeath(room, actor, reason, logs) {
   }
 }
 
-// 成長・変態・レベルアップ
+// 成長判定
 function resolveGrowth(room, logs) {
   Object.values(room.actors).filter(a => a.alive).forEach(a => {
     let req = getExpReq(a.level);
@@ -971,7 +1034,6 @@ function resolveGrowth(room, logs) {
   });
 }
 
-// ゲーム終了処理（スコア計算）
 function finishGame(room) {
   const ranking = Object.values(room.actors).map(a => {
     const survivalTurn = a.alive ? TOTAL_TURNS : Math.max(1, room.turn - 1);
@@ -999,7 +1061,6 @@ function logsPush(room, txt) {
   if (room.logs.length > 50) room.logs.pop();
 }
 
-// クライアント配信用ステート作成
 function getSanitizedRoomState(room) {
   return {
     id: room.id,
@@ -1029,7 +1090,6 @@ function broadcastState(room) {
   });
 }
 
-// サーバー起動
 server.listen(PORT, () => {
   console.log(`FROG LIFE Server running on port ${PORT}`);
 });
