@@ -25,27 +25,27 @@ const EXP_GAIN_MULTIPLIER = 1.35;
 
 const PREY_MASTER = {
   0: [
-    { id: "algae", name: "アオミドロ(藻)", diff: 0, food: 18, exp: 8 },
-    { id: "chironomid", name: "ユスリカの幼虫", diff: 10, food: 22, exp: 12 }
+    { id: "algae", retaliationDamage: 0, name: "アオミドロ(藻)", diff: 0, food: 18, exp: 8 },
+    { id: "chironomid", retaliationDamage: 2, name: "ユスリカの幼虫", diff: 10, food: 22, exp: 12 }
   ],
   1: [
-    { id: "daphnia", name: "ミジンコ", diff: 5, food: 15, exp: 8 },
-    { id: "wriggler", name: "ボウフラ", diff: 15, food: 25, exp: 14 },
-    { id: "bloodworm", name: "アカムシ", diff: 20, food: 28, exp: 18 }
+    { id: "daphnia", retaliationDamage: 1, name: "ミジンコ", diff: 5, food: 15, exp: 8 },
+    { id: "wriggler", retaliationDamage: 3, name: "ボウフラ", diff: 15, food: 25, exp: 14 },
+    { id: "bloodworm", retaliationDamage: 5, name: "アカムシ", diff: 20, food: 28, exp: 18 }
   ],
   2: [
-    { id: "mosquito", name: "落ちた蚊", diff: 25, food: 30, exp: 20 },
-    { id: "strider", name: "アメンボ", diff: 30, food: 32, exp: 22 }
+    { id: "mosquito", retaliationDamage: 4, name: "落ちた蚊", diff: 25, food: 30, exp: 20 },
+    { id: "strider", retaliationDamage: 4, name: "アメンボ", diff: 30, food: 32, exp: 22 }
   ],
   3: [
-    { id: "woodlouse", name: "ワラジムシ", diff: 35, food: 38, exp: 25 },
-    { id: "fly", name: "小型ハエ", diff: 40, food: 40, exp: 28 },
-    { id: "large_mayfly", name: "\u5927\u578b\u30c8\u30d3\u30b1\u30e9\u5e7c\u866b", diff: 58, food: 60, exp: 40 },
+    { id: "woodlouse", retaliationDamage: 6, name: "ワラジムシ", diff: 35, food: 38, exp: 25 },
+    { id: "fly", retaliationDamage: 5, name: "小型ハエ", diff: 40, food: 40, exp: 28 },
+    { id: "large_mayfly", retaliationDamage: 10, name: "\u5927\u578b\u30c8\u30d3\u30b1\u30e9\u5e7c\u866b", diff: 58, food: 60, exp: 40 },
   ],
   4: [
-    { id: "cricket", name: "コオロギ", diff: 50, food: 55, exp: 35 },
-    { id: "grasshopper", name: "大型バッタ", diff: 65, food: 65, exp: 45 },
-    { id: "earthworm", name: "巨大ミミズ (大物)", diff: 85, food: 85, exp: 60 }
+    { id: "cricket", retaliationDamage: 7, name: "コオロギ", diff: 50, food: 55, exp: 35 },
+    { id: "grasshopper", retaliationDamage: 10, name: "大型バッタ", diff: 65, food: 65, exp: 45 },
+    { id: "earthworm", retaliationDamage: 14, name: "巨大ミミズ (大物)", diff: 85, food: 85, exp: 60 }
   ]
 };
 
@@ -354,6 +354,9 @@ wss.on("connection", (ws) => {
             pairTargets: {},
             turnSummaries: {},
             playerActionLogs: [],
+            npcEventLogs: [],
+            worldEventLogs: [],
+            lethalDamageSources: {},
             logs: ["池の卵塊から新たな命が生まれようとしている……"],
             timer: null
           };
@@ -654,6 +657,7 @@ function applyAcceptedCoopActions(room) {
 function resolveTurn(room) {
   if (!room || room.status !== "playing" || room.isResolving) return;
   room.isResolving = true;
+  room.lethalDamageSources = {};
   if (room.timer) clearInterval(room.timer);
 
   const turnLogs = [];
@@ -711,10 +715,13 @@ function resolveTurn(room) {
   const playerTurnLogs = Object.values(room.actors).filter(actor => actor.isPlayer).map(actor => {
     const summary = room.turnSummaries[actor.id];
     const action = summary && summary.action ? summary.action : "";
-    return `\u3010\u7b2c${finishedTurn}\u30bf\u30fc\u30f3\u3011${actor.name}: ${action}`;
+    return { turn: finishedTurn, text: `\u3010\u7b2c${finishedTurn}\u30bf\u30fc\u30f3\u3011${actor.name}: ${action}` };
   });
-  // One concise player-only entry per turn; preserve turn labels and discard duplicate rows.
-  room.playerActionLogs = [...new Set([...playerTurnLogs, ...(room.playerActionLogs || [])])].slice(0, 24);
+  const uniquePlayerLogs = new Map([...playerTurnLogs, ...(room.playerActionLogs || [])].map(entry => {
+    const normalized = typeof entry === "string" ? { turn: 0, text: entry } : entry;
+    return [normalized.text, normalized];
+  }));
+  room.playerActionLogs = [...uniquePlayerLogs.values()].slice(0, 24);
   room.logs = [...turnLogs, ...room.logs].slice(0, 50);
 
   // ⑨ ゲーム終了チェック
@@ -817,6 +824,40 @@ function calculateCoopFeedChance(actor, partner, prey) {
 }
 
 // 行動解決
+function getPreyRetaliationDamage(prey, succeeded) {
+  const damage = Math.max(0, Number(prey && prey.retaliationDamage) || 0);
+  return succeeded ? Math.floor(damage * 0.4) : damage;
+}
+
+function applyPreyRetaliation(room, actor, prey, succeeded) {
+  const damage = getPreyRetaliationDamage(prey, succeeded);
+  if (damage <= 0 || !actor || !actor.alive) return 0;
+  const hpBefore = actor.hp;
+  actor.hp = Math.max(0, actor.hp - damage);
+  recordLethalDamageSource(room, actor, hpBefore, prey.name, "prey");
+  return damage;
+}
+
+function recordLethalDamageSource(room, actor, hpBefore, name, type) {
+  if (!room || !actor || hpBefore <= 0 || actor.hp > 0) return;
+  if (!room.lethalDamageSources) room.lethalDamageSources = {};
+  room.lethalDamageSources[actor.id] = [{ name, type }];
+}
+
+function appendNpcEvent(room, message) {
+  if (!room) return;
+  if (!Array.isArray(room.npcEventLogs)) room.npcEventLogs = [];
+  room.npcEventLogs.unshift({ turn: room.turn, text: `\u3010NPC\u3011\u7b2c${room.turn}\u30bf\u30fc\u30f3: ${message}` });
+  room.npcEventLogs = room.npcEventLogs.slice(0, 24);
+}
+
+function appendWorldEvent(room, message) {
+  if (!room) return;
+  if (!Array.isArray(room.worldEventLogs)) room.worldEventLogs = [];
+  room.worldEventLogs.unshift({ turn: room.turn, text: `\u3010EVENT\u3011\u7b2c${room.turn}\u30bf\u30fc\u30f3: ${message}` });
+  room.worldEventLogs = room.worldEventLogs.slice(0, 24);
+}
+
 function resolveActions(room, logs) {
   const coopDone = new Set();
   const attackersByTarget = new Map();
@@ -846,14 +887,22 @@ function resolveActions(room, logs) {
         a.food = Math.min(100, a.food + halfFood); addExperience(a, halfExp);
         partner.food = Math.min(100, partner.food + halfFood); addExperience(partner, halfExp);
         addAffinity(a, partner, 8);
+        const retaliationA = applyPreyRetaliation(room, a, prey, true);
+        const retaliationB = applyPreyRetaliation(room, partner, prey, true);
 
         const awardedHalfExp = Math.round(halfExp * EXP_GAIN_MULTIPLIER);
         room.turnSummaries[a.id].action = `【協力捕食成功！】${partner.name} と ${prey.name} を山分け！（満腹+${halfFood}, EXP+${awardedHalfExp}, 親密度+8）`;
         room.turnSummaries[partner.id].action = `【協力捕食成功！】${a.name} と ${prey.name} を山分け！（満腹+${halfFood}, EXP+${awardedHalfExp}, 親密度+8）`;
+        if (retaliationA) room.turnSummaries[a.id].action += ` \uFF08${prey.name}\u306E\u53CD\u6483 HP-${retaliationA}\uFF09`;
+        if (retaliationB) room.turnSummaries[partner.id].action += ` \uFF08${prey.name}\u306E\u53CD\u6483 HP-${retaliationB}\uFF09`;
         logs.push(`🤝 【協力狩り成功！】${a.name} と ${partner.name} が ${prey.name} を捕獲して山分け！`);
       } else {
+        const retaliationA = applyPreyRetaliation(room, a, prey, false);
+        const retaliationB = applyPreyRetaliation(room, partner, prey, false);
         room.turnSummaries[a.id].action = `【協力捕食失敗】${partner.name} と挑んだが、${prey.name} に逃げられた。`;
         room.turnSummaries[partner.id].action = `【協力捕食失敗】${a.name} と挑んだが、${prey.name} に逃げられた。`;
+        if (retaliationA) room.turnSummaries[a.id].action += ` \uFF08${prey.name}\u306E\u53CD\u6483 HP-${retaliationA}\uFF09`;
+        if (retaliationB) room.turnSummaries[partner.id].action += ` \uFF08${prey.name}\u306E\u53CD\u6483 HP-${retaliationB}\uFF09`;
       }
       return;
     }
@@ -873,9 +922,13 @@ function resolveActions(room, logs) {
         if (a.trait === "大食漢") { gainExp = Math.round(gainExp * 1.2); gainFood = Math.round(gainFood * 1.2); }
         a.food = Math.min(100, a.food + gainFood);
         a.exp += gainExp;
+        const retaliation = applyPreyRetaliation(room, a, prey, true);
         room.turnSummaries[a.id].action = `【捕食成功】${prey.name} を捕らえた！（満腹+${gainFood}, EXP+${gainExp}）`;
+        if (retaliation) room.turnSummaries[a.id].action += ` \uFF08${prey.name}\u306E\u53CD\u6483 HP-${retaliation}\uFF09`;
       } else {
+        const retaliation = applyPreyRetaliation(room, a, prey, false);
         room.turnSummaries[a.id].action = `【捕食失敗】${prey.name} を狙ったが、すんでのところで逃げられた。`;
+        if (retaliation) room.turnSummaries[a.id].action += ` \uFF08${prey.name}\u306E\u53CD\u6483 HP-${retaliation}\uFF09`;
       }
     }
 
@@ -931,7 +984,9 @@ function resolveActions(room, logs) {
         logs.push(`⚔️ ${target.name} は ${a.name} の攻撃を${defense}で回避した。`);
       } else if (target && target.alive && target.zone === a.zone && !targetIsProtected) {
         const damage = Math.max(5, Math.min(40, 20 + ((a.level || 1) - (target.level || 1)) * 3));
+        const hpBefore = target.hp;
         target.hp = Math.max(0, target.hp - damage);
+        recordLethalDamageSource(room, target, hpBefore, a.name, a.isPlayer ? "player" : "npc");
         if (!attackersByTarget.has(target.id)) attackersByTarget.set(target.id, new Set());
         attackersByTarget.get(target.id).add(a.id);
         addAffinity(a, target, -30);
@@ -961,6 +1016,7 @@ function resolveActions(room, logs) {
 
         a.offspringCount += baseEggs;
         target.offspringCount += baseEggs;
+        if (!a.isPlayer || !target.isPlayer) appendNpcEvent(room, `${a.name} \u3068 ${target.name} \u304c\u4ea4\u914d\u30fb\u7523\u5375\u306b\u6210\u529f\uff08\u5375+${baseEggs}\uff09`);
         a.stamina = Math.max(0, a.stamina - 50);
         addAffinity(a, target, 20);
         coopDone.add(target.id);
@@ -977,6 +1033,12 @@ function resolveActions(room, logs) {
   attackersByTarget.forEach((attackerIds, targetId) => {
     const target = room.actors[targetId];
     if (!target || !target.alive || target.hp > 0) return;
+    const lethalSources = room.lethalDamageSources[targetId] || [];
+    if (!lethalSources.some(source => source.type === "player" || source.type === "npc")) return;
+    room.lethalDamageSources[targetId] = Array.from(attackerIds).map(attackerId => {
+      const attacker = room.actors[attackerId];
+      return attacker ? { name: attacker.name, type: attacker.isPlayer ? "player" : "npc" } : null;
+    }).filter(Boolean);
     attackerIds.forEach(attackerId => {
       const attacker = room.actors[attackerId];
       if (!attacker) return;
@@ -984,6 +1046,7 @@ function resolveActions(room, logs) {
       const summary = room.turnSummaries[attackerId];
       if (summary) summary.action += ` / \u6483\u7834\u30dc\u30fc\u30ca\u30b9 +2000pt (${target.name}\u3092\u6483\u7834)`;
       logs.push(`\u6483\u7834\u30dc\u30fc\u30ca\u30b9: ${attacker.name} +2000pt (${target.name}\u3092\u653b\u6483\u3057HP0\u306b\u3057\u305f)`);
+      if (!attacker.isPlayer) appendNpcEvent(room, `${attacker.name} \u304c ${target.name} \u3092\u5012\u3057\u3001\u30ad\u30eb\u30dc\u30fc\u30ca\u30b9 +2000pt`);
     });
   });
 }
@@ -1090,7 +1153,9 @@ function resolvePredators(room, logs) {
     }
 
     const damage = Math.floor(75 + Math.random() * 16);
+    const hpBefore = victim.hp;
     victim.hp -= damage;
+    recordLethalDamageSource(room, victim, hpBefore, PREDATOR_NAMES[z], "predator");
     logs.push(`🚨 【天敵急襲！】${victim.name} が ${PREDATOR_NAMES[z]} に襲われ、${damage} の致命傷を負った！`);
 
     if (room.turnSummaries[victim.id]) {
@@ -1103,6 +1168,15 @@ function resolvePredators(room, logs) {
 
 // 死亡・リスポーン処理（親密仲間の訃報＆2回目死亡バグ完全修正）
 function handleDeath(room, actor, reason, logs) {
+  const lethalSources = room.lethalDamageSources && room.lethalDamageSources[actor.id] || [];
+  const sourceTypeNames = { player: "\u30d7\u30ec\u30a4\u30e4\u30fc", npc: "NPC", predator: "\u5929\u6575", prey: "\u7372\u7269\u306e\u53cd\u6483" };
+  if (lethalSources.length) {
+    const namesAlreadyPresent = lethalSources.every(source => reason.includes(source.name));
+    const attribution = namesAlreadyPresent
+      ? [...new Set(lethalSources.map(source => sourceTypeNames[source.type] || source.type))].join(", ")
+      : lethalSources.map(source => `${source.name} (${sourceTypeNames[source.type] || source.type})`).join(", ");
+    reason = `${reason} \u3010\u653b\u6483\u5143: ${attribution}\u3011`;
+  }
   // ① 親密度1以上の仲間に訃報通知
   Object.values(room.actors).filter(other => other.alive && other.id !== actor.id).forEach(other => {
     const aff = (other.affinity && other.affinity[actor.id]) || 0;
@@ -1145,6 +1219,9 @@ function handleDeath(room, actor, reason, logs) {
       room.turnSummaries[actor.id].danger = `${reason}により死亡退場しました。`;
     }
   }
+  appendWorldEvent(room, `${actor.name}: ${reason}${actor.alive ? " (respawned)" : " (eliminated)"}`);
+  if (room.lethalDamageSources) delete room.lethalDamageSources[actor.id];
+
 }
 
 function resolveZeroHpActors(room, logs) {
@@ -1225,6 +1302,11 @@ function getSanitizedRoomState(room) {
   const feedChances = {};
   const coopAcceptanceChances = {};
   const coopFeedChances = {};
+  const displayLogs = [...(room.playerActionLogs || []), ...(room.npcEventLogs || []), ...(room.worldEventLogs || [])]
+    .map((entry, index) => typeof entry === "string" ? { text: entry, index, turn: 0 } : { ...entry, index })
+    .sort((a, b) => b.turn - a.turn || a.index - b.index)
+    .slice(0, 24)
+    .map(entry => entry.text);
   Object.values(room.actors).forEach(actor => {
     feedChances[actor.id] = {};
     Object.entries(PREY_MASTER).forEach(([zone, preyList]) => {
@@ -1262,7 +1344,7 @@ function getSanitizedRoomState(room) {
     coopAcceptanceChances,
     coopFeedChances,
     turnSummaries: room.turnSummaries,
-    logs: room.playerActionLogs || [],
+    logs: displayLogs.map(entry => entry.text),
     ranking: room.ranking || null
   };
 }
@@ -1529,6 +1611,7 @@ decideNpcActions = function(room) {
         food = Math.min(100, food + gainFood);
         levelPoints = levelsFromExp(npc, gainExp) * 200;
       }
+      hp = Math.max(0, hp - getPreyRetaliationDamage(action.prey, success));
     } else if (action.act === "water") {
       water = 100;
       stamina = Math.min(100, stamina + 10);
