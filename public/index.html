@@ -297,6 +297,22 @@
 
       <div class="rule-content-box" id="rule-content"></div>
 
+      <button class="secondary" id="detailed-rules-toggle" style="margin-top:8px; border-color:var(--accent-gold); color:var(--accent-gold);" onclick="toggleDetailedRules()">📚 詳細なルールを表示</button>
+      <div id="detailed-rules-box" class="rule-content-box" style="display:none; margin-top:8px; max-height:35vh;">
+        <strong>【ターンと移動】</strong><br>
+        1ターンは最大120秒です。全プレイヤーの行動確定後、または時間切れでターンを解決します。4ターンでゲーム内1日が進みます。<br>
+        移動は隣接するゾーンへ1つまで。水面はLv.3、水際はLv.4、草むらはLv.5から入れます。移動は行動の解決前に反映されます。画面の「現在地」とミニマップは確定済みの位置を示し、移動エリア欄は次に選ぶ移動先です。<br><br>
+        <strong>【行動・生存】</strong><br>
+        捕食はゾーンごとの獲物を狙い、成功率はターン開始時の気力・体格・獲物の難易度と報酬で計算します。獲物の反撃は失敗時の方が大きくなります。<br>
+        水を飲むと水分全快、休むとHP+20・気力+35。休む・隠れるはそのターンのカエル攻撃と天敵を防ぎます。成立したカエル団子も、そのターンの攻撃と天敵を防ぎます。<br><br>
+        <strong>【攻撃】</strong><br>
+        攻撃は相手が移動しても届きます。基本ダメージ25にレベル差×3を加え、5〜45に調整します。攻撃後の距離が1ゾーン増えるごとに威力を25%減らし、最低25%を適用します。実ダメージ1ごとに戦闘報酬+5pt（相手ごとに最大500pt）、撃破時はその相手への合計報酬が2000ptになるよう追加します。<br><br>
+        <strong>【ペアイベント】</strong><br>
+        ペアイベントの相手と選択はターン開始時に決まります。移動後に同じエリアにいれば選択結果が発生し、効果が適用されます。別エリアに分かれた場合も選択結果は決定しますが、イベントは不発となり、効果は適用されません。<br><br>
+        <strong>【得点と終了】</strong><br>
+        最終得点は生存ターン×100、卵×50、レベル×200、生存ボーナス1500、戦闘報酬、戦略ボーナスの合計です。戦略ボーナスは探索・大型獲物の協力捕食・初回カエル団子で獲得し、個体ごとに最大1000ptです。全35ターン、池の凍結、またはプレイヤーが残り1人になると終了します。
+      </div>
+
       <button class="secondary" style="margin-top:10px;" onclick="closeRulebookModal()">閉じる</button>
     </div>
   </div>
@@ -477,7 +493,7 @@
       <div class="panel">
         <div style="display:flex; gap:6px;">
           <div style="flex:1;">
-            <label style="font-size:10px;">移動エリア:</label>
+            <label style="font-size:10px;">移動エリア: <strong id="txt-current-zone" style="color:var(--accent-gold);">現在地: ① 泥底・泥地</strong></label>
             <select id="move-sel" onchange="onMoveSelectChange()"></select>
           </div>
           <div style="flex:1;">
@@ -1049,7 +1065,8 @@ function closeTraitModal() {
 
   if (lastState && lastState.actors && lastState.actors[myActorId]) {
     const me = lastState.actors[myActorId];
-    updateMoveSelect(me.stage || 1, parseInt(me.zone, 10) || 1);
+    const actualZone = parseInt(me.zone, 10);
+    updateMoveSelect(me.stage || 1, Number.isNaN(actualZone) ? 0 : actualZone);
     onMoveSelectChange();
     renderGameUI(lastState);
   }
@@ -1119,6 +1136,8 @@ function closeTurnSummaryModal() {
 
 function openRulebookModal() {
   switchRuleTab(1);
+  document.getElementById("detailed-rules-box").style.display = "none";
+  document.getElementById("detailed-rules-toggle").innerText = "📚 詳細なルールを表示";
   document.getElementById("rulebook-modal").style.display = "flex";
 }
 
@@ -1131,6 +1150,14 @@ function switchRuleTab(tabIdx) {
     document.getElementById(`rtab-${i}`).classList.toggle("active", i === tabIdx);
   }
   document.getElementById("rule-content").innerHTML = RULE_TEXTS[tabIdx];
+}
+
+function toggleDetailedRules() {
+  const box = document.getElementById("detailed-rules-box");
+  const button = document.getElementById("detailed-rules-toggle");
+  const opening = box.style.display === "none";
+  box.style.display = opening ? "block" : "none";
+  button.innerText = opening ? "📚 詳細なルールを閉じる" : "📚 詳細なルールを表示";
 }
 
 function openZoneActorsModal(zoneId) {
@@ -1297,7 +1324,9 @@ function renderGameUI(state) {
       document.getElementById("val-water").innerText = Math.round(me.water);
       document.getElementById("val-sta").innerText = Math.round(me.stamina);
 
-      const myZoneSafe = (me.zone !== undefined && me.zone !== null) ? parseInt(me.zone, 10) : 1;
+      const myZoneSafe = (me.zone !== undefined && me.zone !== null) ? parseInt(me.zone, 10) : 0;
+      const currentZoneLabel = document.getElementById("txt-current-zone");
+      if (currentZoneLabel) currentZoneLabel.innerText = `現在地: ${ZONE_NAMES[myZoneSafe] || "不明"}`;
 
       const moveSel = document.getElementById("move-sel");
       if (lastRenderedTurn !== state.turn || moveSel.options.length === 0) {
@@ -1344,6 +1373,10 @@ function renderGameUI(state) {
     (state.logs || []).forEach(line => {
       const p = document.createElement("div");
       p.innerText = line;
+      if (line.startsWith("【第") && (line.includes("【攻撃】") || line.includes("撃破報酬") || line.includes("撃破ボーナス"))) {
+        p.style.color = "#ff5555";
+        p.style.fontWeight = "bold";
+      }
       logBox.appendChild(p);
     });
   } catch (err) {
@@ -1395,10 +1428,10 @@ function renderMinimap(state, myCurrentZone) {
 // 移動セレクトボックスの生成
 function updateMoveSelect(myStage, currentZone) {
   const sel = document.getElementById("move-sel");
-  const previousVal = sel.value;
   sel.innerHTML = "";
 
-  const cZone = parseInt(currentZone, 10) || 1;
+  const parsedZone = parseInt(currentZone, 10);
+  const cZone = Number.isNaN(parsedZone) ? 0 : parsedZone;
   const candidates = [cZone - 1, cZone, cZone + 1];
 
   candidates.forEach(z => {
@@ -1413,11 +1446,7 @@ function updateMoveSelect(myStage, currentZone) {
     }
   });
 
-  if (previousVal !== "" && sel.querySelector(`option[value="${previousVal}"]`) && !sel.querySelector(`option[value="${previousVal}"]`).disabled) {
-    sel.value = previousVal;
-  } else {
-    sel.value = cZone;
-  }
+  sel.value = String(cZone);
 }
 
 function onMoveSelectChange() {
@@ -1581,7 +1610,8 @@ function updateActorTargetOptions() {
       const aff = (me.affinity && me.affinity[c.id]) ? me.affinity[c.id] : 0;
       const opt = document.createElement("option");
       opt.value = c.id;
-      opt.innerText = `Lv.${c.level} ${c.name} (${c.gender}) [${c.isPlayer ? 'PL' : c.personality}] 親密度:${aff}`;
+      const hpLabel = act === "attack" ? ` HP:${Math.max(0, Math.round(c.hp))}/100` : "";
+      opt.innerText = `Lv.${c.level} ${c.name} (${c.gender}) [${c.isPlayer ? 'PL' : c.personality}]${hpLabel} 親密度:${aff}`;
       sel.appendChild(opt);
     });
     if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
@@ -1806,7 +1836,8 @@ function updateAnim() {
 function renderScene(ctx) {
   const me = (lastState && lastState.actors) ? lastState.actors[myActorId] : null;
   const focusActor = (me && me.alive) ? me : (lastState && Object.values(lastState.actors).find(a => a.isPlayer && a.alive)) || (lastState && Object.values(lastState.actors).find(a => a.alive));
-  const myZone = focusActor ? (parseInt(focusActor.zone, 10) || 1) : 1;
+  const parsedFocusZone = focusActor ? parseInt(focusActor.zone, 10) : 0;
+  const myZone = Number.isNaN(parsedFocusZone) ? 0 : parsedFocusZone;
   const myStage = focusActor ? (parseInt(focusActor.stage, 10) || 1) : 1;
 
   ctx.fillStyle = "#000";

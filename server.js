@@ -1574,20 +1574,20 @@ resolveEvents = function(room, logs) {
     if (!ev || ev.type !== "pair" || room.eventsByActor[partnerId]?.id !== ev.id) continue;
     resolvedPairs.add(actorId);
     resolvedPairs.add(partnerId);
-    if (!actor.alive || !partner.alive || actor.zone !== partner.zone || !ev.resolvePair) {
-      const reason = !actor.alive || !partner.alive ? "相手が行動解決前に倒れたため、ペアイベントは成立しなかった。" : "移動で離れたため、ペアイベントは発生しなかった。";
-      if (room.turnSummaries[actorId]) room.turnSummaries[actorId].event = `【イベント不成立】${reason}`;
-      if (room.turnSummaries[partnerId]) room.turnSummaries[partnerId].event = `【イベント不成立】${reason}`;
-      continue;
-    }
     const selected1 = savedChoices[actorId] || ev.choices[0].id;
     const selected2 = savedChoices[partnerId] || ev.choices[0].id;
     const c1 = room.eventChoices[actorId] || ev.choices[0].id;
     const c2 = room.eventChoices[partnerId] || ev.choices[0].id;
+    const sameArea = actor.alive && partner.alive && actor.zone === partner.zone;
+    const eventOccurs = sameArea && Boolean(ev.resolvePair);
     const affinityBefore = (actor.affinity && actor.affinity[partnerId]) || 0;
     let result;
     try {
-      result = ev.resolvePair(actor, c1, partner, c2);
+      if (ev.resolvePair) {
+        const resultActor = eventOccurs ? actor : structuredClone(actor);
+        const resultPartner = eventOccurs ? partner : structuredClone(partner);
+        result = ev.resolvePair(resultActor, c1, resultPartner, c2);
+      }
     } catch (error) {
       console.error(`Pair event ${ev.id} failed:`, error);
       result = null;
@@ -1600,10 +1600,17 @@ resolveEvents = function(room, logs) {
     const affinity = (actor.affinity && actor.affinity[partnerId]) || 0;
     const log1 = result.log1 || `${partner.name}とのペアイベント「${ev.title || "イベント"}」が解決した。`;
     const log2 = result.log2 || `${actor.name}とのペアイベント「${ev.title || "イベント"}」が解決した。`;
+    const eventStatus = eventOccurs
+      ? "【ペアイベント発生】"
+      : !actor.alive || !partner.alive
+        ? "【ペアイベント不発：相手が倒れたため効果なし】"
+        : !sameArea
+          ? "【ペアイベント不発：移動後に別エリアのため効果なし】"
+          : "【ペアイベント不発：解決処理なし】";
     const actualText1 = selected1 === c1 ? "" : ` / 実際の行動: ${choice1?.text || c1}（裏切りは発生せず）`;
     const actualText2 = selected2 === c2 ? "" : ` / 実際の行動: ${choice2?.text || c2}（裏切りは発生せず）`;
-    room.turnSummaries[actorId].event = `選択: ${selectedChoice1?.text || selected1}${actualText1} / 相手の選択: ${selectedChoice2?.text || selected2}${actualText2} / 結果: ${log1} / 親密度: ${affinityBefore}→${affinity}`;
-    room.turnSummaries[partnerId].event = `選択: ${selectedChoice2?.text || selected2}${actualText2} / 相手の選択: ${selectedChoice1?.text || selected1}${actualText1} / 結果: ${log2} / 親密度: ${affinityBefore}→${affinity}`;
+    room.turnSummaries[actorId].event = `${eventStatus} 選択: ${selectedChoice1?.text || selected1}${actualText1} / 相手の選択: ${selectedChoice2?.text || selected2}${actualText2} / 結果: ${log1} / 親密度: ${affinityBefore}→${affinity}`;
+    room.turnSummaries[partnerId].event = `${eventStatus} 選択: ${selectedChoice2?.text || selected2}${actualText2} / 相手の選択: ${selectedChoice1?.text || selected1}${actualText1} / 結果: ${log2} / 親密度: ${affinityBefore}→${affinity}`;
   }
 
   Object.values(room.actors).forEach(actor => {
