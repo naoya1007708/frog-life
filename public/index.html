@@ -254,14 +254,14 @@
       <div style="font-size:14px; font-weight:bold; color:#fff; margin-bottom:8px;">あなたの身に起こったこと</div>
 
       <div class="effect-box">
-        <div style="font-weight:bold; color:var(--accent);">🦗 行動結果:</div>
-        <div id="sum-action-txt" style="margin-bottom:6px; padding-left:6px;">---</div>
+        <div id="sum-action-box"><div style="font-weight:bold; color:var(--accent);">🦗 行動</div>
+        <div id="sum-action-txt" style="margin-bottom:6px; padding-left:6px;">---</div></div>
 
-        <div style="font-weight:bold; color:var(--accent-gold);">⚡ イベント結果 (親密度・変化):</div>
-        <div id="sum-event-txt" style="margin-bottom:6px; padding-left:6px;">---</div>
+        <div id="sum-event-box"><div style="font-weight:bold; color:var(--accent-gold);">⚡ イベント</div>
+        <div id="sum-event-txt" style="margin-bottom:6px; padding-left:6px;">---</div></div>
 
-        <div style="font-weight:bold; color:#88ddff;">💧 代謝・環境変化:</div>
-        <div id="sum-meta-txt" style="margin-bottom:6px; padding-left:6px;">---</div>
+        <div id="sum-meta-box"><div style="font-weight:bold; color:#88ddff;">💧 体調変化</div>
+        <div id="sum-meta-txt" style="margin-bottom:6px; padding-left:6px;">---</div></div>
 
         <div id="sum-next-info-box" style="display:none; margin:6px 0; padding:6px; border:1px solid #44614a; border-radius:4px; color:#d8f0dc;">
           <strong>次のターン:</strong> <span id="sum-next-weather">---</span><br>
@@ -310,7 +310,9 @@
         <strong>【ペアイベント】</strong><br>
         ペアイベントの相手と選択はターン開始時に決まります。移動後に同じエリアにいれば選択結果が発生し、効果が適用されます。別エリアに分かれた場合も選択結果は決定しますが、イベントは不発となり、効果は適用されません。<br><br>
         <strong>【得点と終了】</strong><br>
-        最終得点は生存ターン×100、卵×50、レベル×200、生存ボーナス1500、戦闘報酬、戦略ボーナスの合計です。戦略ボーナスは探索・大型獲物の協力捕食・初回カエル団子で獲得し、個体ごとに最大1000ptです。全35ターン、池の凍結、またはプレイヤーが残り1人になると終了します。
+        <strong>【成長・残機】</strong><br>Lv.1〜6は残機2。死亡時はレベルを1下げて復活します。Lv.7以降は永久死亡です。Lv.3で後足、Lv.5で前足、Lv.7で尾の変態、Lv.9で子ガエル、Lv.12で成体となり求愛が解禁されます。成体後もレベルは上がります。<br><br>
+        <strong>【親密度と産卵数】</strong><br>0〜19: 15〜20個 / 20〜39: 21〜30個 / 40〜69: 31〜45個 / 70〜100: 46〜60個。親密度40以上で名前がピンク枠になります。協力受諾率は相手の性格・親密度・空腹度などから計算されます。<br><br>
+        <strong>【得点・攻撃】</strong><br>得点は生存ターン×100、卵×50、レベル×200、生存ボーナス1500、戦闘報酬、戦略ボーナスの合計です。戦略ボーナスは探索・協力捕食・初回カエル団子で獲得し、個体ごとに最大1000pt。攻撃は基本25、レベル差1ごとに±3（5〜45）。攻撃後の距離1ゾーンごとに威力25%減（最低25%）。実ダメージ1ごとに+5pt（相手ごと最大500pt）、撃破時は合計2000ptになるよう追加されます。全35ターン、池の凍結、またはプレイヤーが残り1人になると終了します。
       </div>
 
       <button class="secondary" style="margin-top:10px;" onclick="closeRulebookModal()">閉じる</button>
@@ -492,8 +494,9 @@
       <!-- 行動入力パネル -->
       <div class="panel">
         <div style="display:flex; gap:6px;">
-          <div style="flex:1;">
-            <label style="font-size:10px;">移動エリア: <strong id="txt-current-zone" style="color:var(--accent-gold);">現在地: ① 泥底・泥地</strong></label>
+        <div style="flex:1;">
+            <div style="font-size:10px; margin-bottom:3px;">現在地: <strong id="txt-current-zone" style="color:var(--accent-gold);">① 泥底・泥地</strong></div>
+            <label style="font-size:10px;">移動先:</label>
             <select id="move-sel" onchange="onMoveSelectChange()"></select>
           </div>
           <div style="flex:1;">
@@ -616,47 +619,30 @@ const TRAITS_DATA = {
 
 const RULE_TEXTS = {
   1: `<strong>【ゲームの目的と勝利条件】</strong><br>
-・プレイヤーは1つの卵塊から生まれた兄弟の1匹となり、過酷な池で生き延びます。<br>
-・全35ターン（約15〜20分 / 1T: 120秒）で池が凍結（冬眠）するか、最後の1匹で終了。<br>
-・<strong>最終スコア</strong>：生存ターン×100 ＋ 卵×50 ＋ 最終レベル×200 ＋ 生存ボーナス1500 ＋ 戦闘報酬 ＋ 戦略ボーナス。<br>
-・<strong>戦略ボーナス</strong>：4ゾーン到達で+400、全5ゾーン到達でさらに+200。初めて大型獲物の協力捕食で+300、初めてのカエル団子で+150。各個体の合計1000ptまで。<br>
-・<strong>戦闘報酬</strong>：敵カエルへの実ダメージ1ごとに+5pt（相手1匹につき最大+500pt）。倒すとその相手への戦闘報酬が合計+2000ptになるよう追加。複数人で倒した場合は攻撃した全員に適用。<br>
-※成長・繁殖・探索・協力・戦闘など、複数の勝ち筋を選べます。`,
+・池で生き延び、成長・繁殖・探索・協力・戦闘で得点を伸ばそう。<br>
+・全35ターン、池の凍結、またはプレイヤーが残り1人になると終了します。<br>
+・生存、卵、レベル、探索、協力、戦闘が最終スコアに反映されます。<br>
+※得点の内訳と数値は「詳細なルール」を確認してください。`,
 
   2: `<strong>【ゾーンの危険度と天候システム】</strong><br>
-<strong>【ゾーンのハイリスク・ハイリターン】</strong><br>
-・<strong>⑤ 草むら</strong>：コオロギ等（EXP特大）。ただし水分が激減しヘビ潜伏。<br>
-・<strong>④ 水際</strong>：倒木シェルター（定員1匹）あり。水分消費小。<br>
-・<strong>③ 水面</strong>：アオサギの急襲デスゾーン。<br>
-・<strong>② 水中 / ① 水底</strong>：水分消費なし。安全だが藻類（EXP極小）。<br><br>
-<strong>【天候の影響（全5種類）】</strong><br>
-・🌧️ <strong>雨</strong>：草むらでも水分消費ゼロ！安全に陸地を探索できるボーナスタイム。<br>
-・☀️ <strong>快晴</strong>：草むらの水分消費1.5倍。油断すると数ターンで干からび死！<br>
-・☁️ <strong>曇り</strong>：標準の天候。計画的な水分補給が必要。<br>
-・🔥 <strong>日照り・酷暑</strong>：草むらの乾燥2倍、水際も乾燥！満腹度減少も加速するデスゲーム。<br>
-・⛈️ <strong>豪雨・嵐</strong>：水分消費ゼロ。水流で気力消費が増えるが、<strong>天敵が隠れて襲来しない安全な嵐</strong>！`,
+・⑤草むらは餌と経験値が豊富ですが、乾燥とヘビに注意。<br>
+・④水際には定員1匹の倒木シェルター。③水面にはサギの危険があります。<br>
+・①水底・②水中は乾燥しにくく、餌の栄養は控えめです。<br>
+・雨と豪雨は水分消費なし。豪雨中は天敵が襲来しません。<br>
+・快晴は草むらの乾燥1.5倍、日照りは草むら2倍かつ水際も乾燥します。曇りは標準です。`,
 
   3: `<strong>【親密度・協力申請・交配産卵数】</strong><br>
-・<strong>協力申請の受託確率</strong>：相手の性格・親密度・空腹度からリアルタイム計算され、選択した移動先を前提に申請枠へ表示されます。NPCへの申請も表示値と同じ確率で判定されます。<br>
-・<strong>親密度とピンク枠</strong>：協力や団子で親密度が40を超えると<strong>「ピンク枠💕」</strong>に変化！<br>
-・<strong>【親密度連動の産卵数テーブル】</strong>：<br>
-  ・親密度 0〜19 (初対面)：<strong>15 〜 20 個</strong><br>
-  ・親密度 20〜39 (顔見知り)：<strong>21 〜 30 個</strong><br>
-  ・親密度 40〜69 (親密💕)：<strong>31 〜 45 個</strong><br>
-  ・親密度 70〜100 (無二の親友)：<strong>46 〜 60 個！(超大量得点)</strong><br>
-普段から助け合ってきた親友と交配することが最大の勝利への近道です。`,
+・カエル団子や大型獲物の協力は、相手の受諾が必要です。<br>
+・親密度は協力やイベントで変化し、協力の見込みやペアイベントに影響します。<br>
+・成体同士の求愛が成功すると産卵します。親密度が高いほど卵が増えます。<br>
+※受諾確率と産卵数の詳細は「詳細なルール」を確認してください。`,
 
   4: `<strong>【成長段階と残機制】</strong><br>
-・<strong>第1〜3段階 (オタマジャクシ期)</strong>：<br>
-  卵ストック（残機2機）あり。死亡しても水底から復活可能（レベル-1の出遅れ）。<br>
-・<strong>第4段階 (尾の吸収・変態期 / Lv.7〜)</strong>：<br>
-  <strong>残機が消滅し、完全な「永久死亡」へ切り替わります！</strong><br>
-・<strong>第6段階 (成体カエル / Lv.12〜)</strong>：<br>
-  求愛・繁殖が解禁！成体後もレベルは上限なく上がり続け、体長・体重が増加します。<br><br>
-<strong>【攻撃と防御】</strong><br>
-・攻撃は相手が移動しても命中します。攻撃後の両者の距離1ゾーンごとに威力が25%下がり、最低25%になります。<br>
-・基本ダメージは25、レベル差1ごとに±3（最大45）。「休む・隠れる」と成立したカエル団子は攻撃を回避します。<br>
-・実際に与えたHPダメージ1ごとに戦闘報酬+5pt（相手ごとに最大500pt）。撃破時は同じ相手への合計が2000ptになるよう追加されます。`
+・幼生期は残機があり、死亡後に復活できます。Lv.7以降は残機がなくなります。<br>
+・成長すると移動できるゾーンが増え、Lv.12で求愛・繁殖が解禁されます。<br>
+・成体後も成長し、体格や行動に影響します。<br>
+・休む・隠れる、または成立したカエル団子で攻撃を回避できます。<br>
+※レベル条件や攻撃の計算は「詳細なルール」を確認してください。`
 };
 
 let ws = null;
@@ -1087,9 +1073,14 @@ function respondCoopRequest(accept) {
 
 function showTurnSummaryModal(sum, state) {
   document.getElementById("sum-turn-title").innerText = `【 TURN ${sum.turn} 生存結果 】`;
-  document.getElementById("sum-action-txt").innerText = [sum.action || "行動なし", sum.scoreLog].filter(Boolean).join(" / ");
-  document.getElementById("sum-event-txt").innerText = sum.event || "特になし";
-  document.getElementById("sum-meta-txt").innerText = sum.metabolism || "正常";
+  const actionText = [sum.action, sum.scoreLog].filter(Boolean).join(" / ");
+  const eventText = sum.event || "";
+  const metaText = sum.metabolism || "";
+  document.getElementById("sum-action-txt").innerText = actionText || "行動なし";
+  document.getElementById("sum-event-txt").innerText = eventText;
+  document.getElementById("sum-meta-txt").innerText = metaText;
+  document.getElementById("sum-event-box").style.display = !eventText || eventText === "特になし" ? "none" : "";
+  document.getElementById("sum-meta-box").style.display = !metaText || metaText === "正常" ? "none" : "";
 
   const nextInfoBox = document.getElementById("sum-next-info-box");
   if (state && state.status === "playing") {
@@ -1440,7 +1431,7 @@ function updateMoveSelect(myStage, currentZone) {
       opt.value = z;
       const minStage = [1, 1, 3, 4, 5][z];
       const disabled = myStage < minStage;
-      opt.innerText = (z === cZone ? "【現在地】" : "➔ ") + ZONE_NAMES[z] + (disabled ? " (成長不足)" : "");
+      opt.innerText = (z === cZone ? "【その場】" : "➔ ") + ZONE_NAMES[z] + (disabled ? " (成長不足)" : "");
       opt.disabled = disabled;
       sel.appendChild(opt);
     }
@@ -1610,8 +1601,12 @@ function updateActorTargetOptions() {
       const aff = (me.affinity && me.affinity[c.id]) ? me.affinity[c.id] : 0;
       const opt = document.createElement("option");
       opt.value = c.id;
-      const hpLabel = act === "attack" ? ` HP:${Math.max(0, Math.round(c.hp))}/100` : "";
-      opt.innerText = `Lv.${c.level} ${c.name} (${c.gender}) [${c.isPlayer ? 'PL' : c.personality}]${hpLabel} 親密度:${aff}`;
+      const isSocialSelection = act === "huddle" || act === "mate" || (act === "feed" && document.getElementById("coop-feed-check")?.checked);
+      opt.innerText = act === "attack"
+        ? `Lv.${c.level} ${c.name}　HP:${Math.max(0, Math.round(c.hp))}/100`
+        : isSocialSelection
+          ? `Lv.${c.level} ${c.name} (${c.gender}) [${c.isPlayer ? 'PL' : c.personality}] 親密度:${aff}`
+          : `Lv.${c.level} ${c.name} (${c.gender})`;
       sel.appendChild(opt);
     });
     if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;

@@ -1049,7 +1049,6 @@ function resolveActions(room, logs) {
         const coopBonusB = awardCoopMilestone(partner, "huddle", 150, room, logs, "初めてのカエル団子");
         room.turnSummaries[a.id].action = `【カエル団子】${partner.name} と身を寄せ合って保湿した。（水分+25, 親密度+8${coopBonusA ? `、戦略ボーナス+${coopBonusA}` : ""}）`;
         room.turnSummaries[partner.id].action = `【カエル団子成功】${a.name}と密集して保湿。（水分+25、親密度+8${coopBonusB ? `、戦略ボーナス+${coopBonusB}` : ""}）`;
-        appendSocialLog(room.turnSummaries[partner.id], `🐸 ${a.name} とのカエル団子が成功し、保湿と親密度上昇の効果を得た。（水分+25、親密度+8）`);
         logs.push(`🐸 【カエル団子成功】${a.name} と ${partner.name} が身を寄せ合い、保湿した！（水分+25、親密度+8）`);
       } else {
         a.water = Math.min(100, a.water + 15);
@@ -1593,24 +1592,24 @@ resolveEvents = function(room, logs) {
       result = null;
     }
     if (!result || typeof result !== "object") result = {};
-    const choice1 = ev.choices.find(choice => choice.id === c1);
-    const choice2 = ev.choices.find(choice => choice.id === c2);
-    const selectedChoice1 = ev.choices.find(choice => choice.id === selected1);
-    const selectedChoice2 = ev.choices.find(choice => choice.id === selected2);
     const affinity = (actor.affinity && actor.affinity[partnerId]) || 0;
     const log1 = result.log1 || `${partner.name}とのペアイベント「${ev.title || "イベント"}」が解決した。`;
     const log2 = result.log2 || `${actor.name}とのペアイベント「${ev.title || "イベント"}」が解決した。`;
     const eventStatus = eventOccurs
-      ? "【ペアイベント発生】"
+      ? "【ペアイベント】"
       : !actor.alive || !partner.alive
-        ? "【ペアイベント不発：相手が倒れたため効果なし】"
+        ? "【不成立】相手が倒れたため効果なし。"
         : !sameArea
-          ? "【ペアイベント不発：移動後に別エリアのため効果なし】"
-          : "【ペアイベント不発：解決処理なし】";
-    const actualText1 = selected1 === c1 ? "" : ` / 実際の行動: ${choice1?.text || c1}（裏切りは発生せず）`;
-    const actualText2 = selected2 === c2 ? "" : ` / 実際の行動: ${choice2?.text || c2}（裏切りは発生せず）`;
-    room.turnSummaries[actorId].event = `${eventStatus} 選択: ${selectedChoice1?.text || selected1}${actualText1} / 相手の選択: ${selectedChoice2?.text || selected2}${actualText2} / 結果: ${log1} / 親密度: ${affinityBefore}→${affinity}`;
-    room.turnSummaries[partnerId].event = `${eventStatus} 選択: ${selectedChoice2?.text || selected2}${actualText2} / 相手の選択: ${selectedChoice1?.text || selected1}${actualText1} / 結果: ${log2} / 親密度: ${affinityBefore}→${affinity}`;
+          ? "【不成立】移動後に別エリアとなり効果なし。"
+          : "【不成立】イベント効果なし。";
+    const actualText1 = selected1 === c1 ? "" : `（${actor.name}の裏切りは発生せず）`;
+    const actualText2 = selected2 === c2 ? "" : `（${partner.name}の裏切りは発生せず）`;
+    room.turnSummaries[actorId].event = eventOccurs
+      ? `${eventStatus} ${log1}${actualText2} 親密度 ${affinityBefore}→${affinity}`
+      : eventStatus;
+    room.turnSummaries[partnerId].event = eventOccurs
+      ? `${eventStatus} ${log2}${actualText1} 親密度 ${affinityBefore}→${affinity}`
+      : eventStatus;
   }
 
   Object.values(room.actors).forEach(actor => {
