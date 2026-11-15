@@ -236,6 +236,58 @@ function addExperience(actor, amount) {
   actor.exp += Math.max(0, Math.round(amount * EXP_GAIN_MULTIPLIER));
 }
 
+function awardStrategyBonus(actor, points) {
+  if (!actor || points <= 0) return 0;
+  const before = actor.strategyBonusScore || 0;
+  const awarded = Math.min(points, Math.max(0, 1000 - before));
+  actor.strategyBonusScore = before + awarded;
+  return awarded;
+}
+
+function recordZoneVisit(actor, zone, logs, room) {
+  if (!actor) return;
+  if (!Array.isArray(actor.visitedZones)) actor.visitedZones = [actor.zone];
+  if (!actor.visitedZones.includes(zone)) actor.visitedZones.push(zone);
+  if (!actor.explorationMilestones) actor.explorationMilestones = { fourZones: false, fiveZones: false };
+  if (actor.visitedZones.length >= 4 && !actor.explorationMilestones.fourZones) {
+    actor.explorationMilestones.fourZones = true;
+    const points = awardStrategyBonus(actor, 400);
+    if (points) logs.push(`🧭 ${actor.name} が4つのゾーンを探索し、探索ボーナス +${points}pt`);
+    if (points && room.turnSummaries && room.turnSummaries[actor.id]) room.turnSummaries[actor.id].scoreLog = `探索ボーナス：4ゾーン到達 +${points}pt`;
+    if (!actor.isPlayer && points) appendNpcEvent(room, `${actor.name} が4ゾーンを探索し、探索ボーナス +${points}pt`);
+  }
+  if (actor.visitedZones.length >= 5 && !actor.explorationMilestones.fiveZones) {
+    actor.explorationMilestones.fiveZones = true;
+    const points = awardStrategyBonus(actor, 200);
+    if (points) logs.push(`🧭 ${actor.name} が全5ゾーンを巡り、追加探索ボーナス +${points}pt`);
+    if (points && room.turnSummaries && room.turnSummaries[actor.id]) room.turnSummaries[actor.id].scoreLog = `${room.turnSummaries[actor.id].scoreLog ? `${room.turnSummaries[actor.id].scoreLog} / ` : ""}全5ゾーン到達 +${points}pt`;
+    if (!actor.isPlayer && points) appendNpcEvent(room, `${actor.name} が全5ゾーンを巡り、追加探索ボーナス +${points}pt`);
+  }
+}
+
+function awardCombatDamageScore(attacker, target, damage) {
+  if (!attacker || !target || damage <= 0) return 0;
+  if (!attacker.combatScoreByTarget) attacker.combatScoreByTarget = {};
+  const current = attacker.combatScoreByTarget[target.id] || 0;
+  const earned = Math.min(damage * 5, Math.max(0, 500 - current));
+  attacker.combatScoreByTarget[target.id] = current + earned;
+  attacker.killBonusScore = (attacker.killBonusScore || 0) + earned;
+  return earned;
+}
+
+function awardCoopMilestone(actor, milestone, points, room, logs, label) {
+  if (!actor) return 0;
+  if (!actor.strategyMilestones) actor.strategyMilestones = { largePreyCoop: false, huddle: false };
+  if (actor.strategyMilestones[milestone]) return 0;
+  actor.strategyMilestones[milestone] = true;
+  const awarded = awardStrategyBonus(actor, points);
+  if (awarded) {
+    logs.push(`🤝 ${actor.name} が${label}を達成し、戦略ボーナス +${awarded}pt`);
+    if (!actor.isPlayer) appendNpcEvent(room, `${actor.name} が${label}を達成し、戦略ボーナス +${awarded}pt`);
+  }
+  return awarded;
+}
+
 function appendSocialLog(summary, text) {
   if (summary) summary.socialLog = summary.socialLog ? `${summary.socialLog} ${text}` : text;
 }
@@ -246,13 +298,21 @@ function isCoopActionCommitted(room, actorId) {
   if (Object.values(room.coopRequests || {}).some(request => request.fromId === actorId)) return true;
   const actor = room.actors && room.actors[actorId];
   const action = room.actions && room.actions[actorId];
-  return Boolean(actor && actor.ready && action && (
-    action.act === "huddle" || action.act === "mate" || action.coopRequested
+  return Boolean(actor && (!actor.isPlayer || actor.ready) && action && (
+    action.coopRequested || ((action.act === "huddle" || action.act === "mate") && action.targetId)
   ));
 }
 
-function calculateCoopAcceptanceChance(room, requester, target, type) {
-  if (!room || !requester || !target || !requester.alive || !target.alive || requester.id === target.id || requester.zone !== target.zone) return 0;
+function canEnterZone(actor, zone) {
+  const targetZone = Number(zone);
+  const minStage = [1, 1, 3, 4, 5][targetZone];
+  return Number.isInteger(targetZone) && targetZone >= 0 && targetZone <= 4 && actor && actor.stage >= minStage && Math.abs(targetZone - actor.zone) <= 1;
+}
+
+function calculateCoopAcceptanceChance(room, requester, target, type, requestedZone) {
+  if (!room || !requester || !target || !requester.alive || !target.alive || requester.id === target.id) return 0;
+  const coopZone = requestedZone === undefined ? requester.zone : Number(requestedZone);
+  if (!canEnterZone(requester, coopZone) || !canEnterZone(target, coopZone)) return 0;
   if (type === "mate" && (requester.stage < 6 || target.stage < 6 || requester.gender === target.gender || requester.stamina < 50)) return 0;
   if (isCoopActionCommitted(room, requester.id) || isCoopActionCommitted(room, target.id) || room.coopRequests[target.id]) return 0;
   if (target.isPlayer) return null;
@@ -296,6 +356,11 @@ function createActor(id, name, isPlayer) {
     ready: false,
     offspringCount: 0,
     killBonusScore: 0,
+    strategyBonusScore: 0,
+    visitedZones: [0],
+    explorationMilestones: { fourZones: false, fiveZones: false },
+    strategyMilestones: { largePreyCoop: false, huddle: false },
+    combatScoreByTarget: {},
     affinity: {},
     history: [`Lv.1 オタマジャクシとして誕生（特徴: ${trait}）`]
   };
@@ -453,7 +518,9 @@ wss.on("connection", (ws) => {
 
           const validCoopType = ["feed", "huddle", "mate"].includes(data.coopType);
           const validMate = data.coopType !== "mate" || (fromActor && targetActor && fromActor.stage >= 6 && targetActor.stage >= 6 && fromActor.gender !== targetActor.gender && fromActor.stamina >= 50);
-          if (validCoopType && validMate && fromActor && targetActor && fromActor.id !== targetActor.id && fromActor.alive && targetActor.alive && fromActor.zone === targetActor.zone) {
+          const requestedZone = Number(data.moveZone ?? room.actions[myActorId]?.moveZone ?? fromActor?.zone);
+          const validZone = canEnterZone(fromActor, requestedZone) && canEnterZone(targetActor, requestedZone);
+          if (validCoopType && validMate && validZone && fromActor && targetActor && fromActor.id !== targetActor.id && fromActor.alive && targetActor.alive) {
             const targetBusy = isCoopActionCommitted(room, targetActor.id) || Boolean(room.coopRequests[targetActor.id]);
             const requesterBusy = isCoopActionCommitted(room, fromActor.id);
             if (targetBusy || requesterBusy) {
@@ -465,15 +532,16 @@ wss.on("connection", (ws) => {
                 fromName: fromActor.name,
                 type: data.coopType,
                 preyId: data.preyId,
+                zone: requestedZone,
                 turn: room.turn
               };
               broadcastState(room);
             } else {
               // NPCの受託判定
-              const chance = calculateCoopAcceptanceChance(room, fromActor, targetActor, data.coopType) || 0;
+              const chance = calculateCoopAcceptanceChance(room, fromActor, targetActor, data.coopType, requestedZone) || 0;
               if (Math.random() * 100 < chance) {
-                room.coopAccepted[fromActor.id] = { partnerId: targetActor.id, initiatorId: fromActor.id, type: data.coopType, preyId: data.preyId };
-                room.coopAccepted[targetActor.id] = { partnerId: fromActor.id, initiatorId: fromActor.id, type: data.coopType, preyId: data.preyId };
+                room.coopAccepted[fromActor.id] = { partnerId: targetActor.id, initiatorId: fromActor.id, type: data.coopType, preyId: data.preyId, zone: requestedZone };
+                room.coopAccepted[targetActor.id] = { partnerId: fromActor.id, initiatorId: fromActor.id, type: data.coopType, preyId: data.preyId, zone: requestedZone };
                 ws.send(JSON.stringify({ type: "COOP_RESPONSE_NOTIFY", accepted: true, targetName: targetActor.name }));
               } else {
                 addAffinity(targetActor, fromActor, -6);
@@ -492,9 +560,11 @@ wss.on("connection", (ws) => {
           const targetActor = room.actors[myActorId];
 
           const validMate = req.type !== "mate" || (fromActor && targetActor && fromActor.stage >= 6 && targetActor.stage >= 6 && fromActor.gender !== targetActor.gender && fromActor.stamina >= 50);
-          if (data.accept && fromActor && fromActor.alive && targetActor && targetActor.alive && fromActor.zone === targetActor.zone && validMate) {
-            room.coopAccepted[fromActor.id] = { partnerId: targetActor.id, initiatorId: fromActor.id, type: req.type, preyId: req.preyId };
-            room.coopAccepted[targetActor.id] = { partnerId: fromActor.id, initiatorId: fromActor.id, type: req.type, preyId: req.preyId };
+          const acceptedZone = req.zone ?? fromActor?.zone;
+          const validZone = canEnterZone(fromActor, acceptedZone) && canEnterZone(targetActor, acceptedZone);
+          if (data.accept && fromActor && fromActor.alive && targetActor && targetActor.alive && validZone && validMate) {
+            room.coopAccepted[fromActor.id] = { partnerId: targetActor.id, initiatorId: fromActor.id, type: req.type, preyId: req.preyId, zone: acceptedZone };
+            room.coopAccepted[targetActor.id] = { partnerId: fromActor.id, initiatorId: fromActor.id, type: req.type, preyId: req.preyId, zone: acceptedZone };
             room.actions[targetActor.id] = room.actions[targetActor.id] || {};
             room.actors[targetActor.id].ready = true;
             applyAcceptedCoopActions(room);
@@ -640,7 +710,7 @@ function applyAcceptedCoopActions(room) {
     handled.add(partner.id);
     const initiatorAction = room.actions[initiator.id] || {};
     const partnerAction = room.actions[partner.id] || {};
-    const sharedMoveZone = initiatorAction.moveZone !== undefined ? initiatorAction.moveZone : initiator.zone;
+    const sharedMoveZone = accepted.zone !== undefined ? accepted.zone : (initiatorAction.moveZone !== undefined ? initiatorAction.moveZone : initiator.zone);
     if (accepted.type === "feed") {
       room.actions[initiator.id] = { ...initiatorAction, act: "feed", targetPreyId: accepted.preyId, targetId: partner.id };
       room.actions[partner.id] = { ...partnerAction, moveZone: sharedMoveZone, act: "feed", targetPreyId: accepted.preyId, targetId: initiator.id };
@@ -690,6 +760,7 @@ function resolveTurn(room) {
         a.zone = targetZ;
       }
     }
+    recordZoneVisit(a, a.zone, turnLogs, room);
   });
 
   // ④ 行動解決（捕食・団子・求愛・攻撃など）
@@ -715,7 +786,8 @@ function resolveTurn(room) {
   const playerTurnLogs = Object.values(room.actors).filter(actor => actor.isPlayer).map(actor => {
     const summary = room.turnSummaries[actor.id];
     const action = summary && summary.action ? summary.action : "";
-    return { turn: finishedTurn, text: `\u3010\u7b2c${finishedTurn}\u30bf\u30fc\u30f3\u3011${actor.name}: ${action}` };
+    const scoreLog = summary && summary.scoreLog ? ` / ${summary.scoreLog}` : "";
+    return { turn: finishedTurn, text: `\u3010\u7b2c${finishedTurn}\u30bf\u30fc\u30f3\u3011${actor.name}: ${action}${scoreLog}` };
   });
   const uniquePlayerLogs = new Map([...playerTurnLogs, ...(room.playerActionLogs || [])].map(entry => {
     const normalized = typeof entry === "string" ? { turn: 0, text: entry } : entry;
@@ -823,6 +895,10 @@ function calculateCoopFeedChance(actor, partner, prey) {
   return Math.max(30, Math.min(95, Math.round(chance)));
 }
 
+function isCoopLargePrey(prey) {
+  return Boolean(prey && (prey.id === "earthworm" || prey.id === "large_mayfly"));
+}
+
 // 行動解決
 function getPreyRetaliationDamage(prey, succeeded) {
   const damage = Math.max(0, Number(prey && prey.retaliationDamage) || 0);
@@ -869,6 +945,9 @@ function resolveActions(room, logs) {
     // ① 協力捕食
     if (act === "feed" && room.coopAccepted[a.id] && room.coopAccepted[a.id].type === "feed" && !coopDone.has(a.id)) {
       const partner = room.actors[room.coopAccepted[a.id].partnerId];
+      if (!partner || !partner.alive) {
+        delete room.coopAccepted[a.id];
+      } else {
       const preyId = room.coopAccepted[a.id].preyId;
       const preyList = PREY_MASTER[a.zone] || [];
       const prey = preyList.find(p => p.id === preyId) || preyList[preyList.length - 1];
@@ -889,10 +968,15 @@ function resolveActions(room, logs) {
         addAffinity(a, partner, 8);
         const retaliationA = applyPreyRetaliation(room, a, prey, true);
         const retaliationB = applyPreyRetaliation(room, partner, prey, true);
+        let coopBonusA = 0, coopBonusB = 0;
+        if (isCoopLargePrey(prey)) {
+          coopBonusA = awardCoopMilestone(a, "largePreyCoop", 300, room, logs, "大型獲物の協力捕食");
+          coopBonusB = awardCoopMilestone(partner, "largePreyCoop", 300, room, logs, "大型獲物の協力捕食");
+        }
 
         const awardedHalfExp = Math.round(halfExp * EXP_GAIN_MULTIPLIER);
-        room.turnSummaries[a.id].action = `【協力捕食成功！】${partner.name} と ${prey.name} を山分け！（満腹+${halfFood}, EXP+${awardedHalfExp}, 親密度+8）`;
-        room.turnSummaries[partner.id].action = `【協力捕食成功！】${a.name} と ${prey.name} を山分け！（満腹+${halfFood}, EXP+${awardedHalfExp}, 親密度+8）`;
+        room.turnSummaries[a.id].action = `【協力捕食成功！】${partner.name} と ${prey.name} を山分け！（満腹+${halfFood}, EXP+${awardedHalfExp}, 親密度+8${coopBonusA ? `、戦略ボーナス+${coopBonusA}` : ""}）`;
+        room.turnSummaries[partner.id].action = `【協力捕食成功！】${a.name} と ${prey.name} を山分け！（満腹+${halfFood}, EXP+${awardedHalfExp}, 親密度+8${coopBonusB ? `、戦略ボーナス+${coopBonusB}` : ""}）`;
         if (retaliationA) room.turnSummaries[a.id].action += ` \uFF08${prey.name}\u306E\u53CD\u6483 HP-${retaliationA}\uFF09`;
         if (retaliationB) room.turnSummaries[partner.id].action += ` \uFF08${prey.name}\u306E\u53CD\u6483 HP-${retaliationB}\uFF09`;
         logs.push(`🤝 【協力狩り成功！】${a.name} と ${partner.name} が ${prey.name} を捕獲して山分け！`);
@@ -905,6 +989,7 @@ function resolveActions(room, logs) {
         if (retaliationB) room.turnSummaries[partner.id].action += ` \uFF08${prey.name}\u306E\u53CD\u6483 HP-${retaliationB}\uFF09`;
       }
       return;
+      }
     }
 
     if (coopDone.has(a.id)) return;
@@ -923,11 +1008,15 @@ function resolveActions(room, logs) {
         a.food = Math.min(100, a.food + gainFood);
         a.exp += gainExp;
         const retaliation = applyPreyRetaliation(room, a, prey, true);
-        room.turnSummaries[a.id].action = `【捕食成功】${prey.name} を捕らえた！（満腹+${gainFood}, EXP+${gainExp}）`;
+        room.turnSummaries[a.id].action = actData.coopRequested
+          ? `【協力不成立・単独捕食成功】申請は成立せず一匹で捕獲。（満腹+${gainFood}, EXP+${gainExp}）`
+          : `【捕食成功】${prey.name} を捕らえた！（満腹+${gainFood}, EXP+${gainExp}）`;
         if (retaliation) room.turnSummaries[a.id].action += ` \uFF08${prey.name}\u306E\u53CD\u6483 HP-${retaliation}\uFF09`;
       } else {
         const retaliation = applyPreyRetaliation(room, a, prey, false);
-        room.turnSummaries[a.id].action = `【捕食失敗】${prey.name} を狙ったが、すんでのところで逃げられた。`;
+        room.turnSummaries[a.id].action = actData.coopRequested
+          ? `【協力不成立・単独捕食失敗】申請は成立せず一匹で狙ったが、${prey.name} に逃げられた。`
+          : `【捕食失敗】${prey.name} を狙ったが、すんでのところで逃げられた。`;
         if (retaliation) room.turnSummaries[a.id].action += ` \uFF08${prey.name}\u306E\u53CD\u6483 HP-${retaliation}\uFF09`;
       }
     }
@@ -956,8 +1045,10 @@ function resolveActions(room, logs) {
         a.water = Math.min(100, a.water + 25);
         partner.water = Math.min(100, partner.water + 25);
         addAffinity(a, partner, 8);
-        room.turnSummaries[a.id].action = `【カエル団子】${partner.name} と身を寄せ合って保湿した。（水分+25, 親密度+8）`;
-        room.turnSummaries[partner.id].action = `\u3010\u30ab\u30a8\u30eb\u56e3\u5b50\u6210\u529f\u3011${a.name}\u3068\u5bc6\u96c6\u3057\u3066\u4fdd\u6e7f\u3002\u6c34\u5206+25\u3001\u89aa\u5bc6\u5ea6+8`;
+        const coopBonusA = awardCoopMilestone(a, "huddle", 150, room, logs, "初めてのカエル団子");
+        const coopBonusB = awardCoopMilestone(partner, "huddle", 150, room, logs, "初めてのカエル団子");
+        room.turnSummaries[a.id].action = `【カエル団子】${partner.name} と身を寄せ合って保湿した。（水分+25, 親密度+8${coopBonusA ? `、戦略ボーナス+${coopBonusA}` : ""}）`;
+        room.turnSummaries[partner.id].action = `【カエル団子成功】${a.name}と密集して保湿。（水分+25、親密度+8${coopBonusB ? `、戦略ボーナス+${coopBonusB}` : ""}）`;
         appendSocialLog(room.turnSummaries[partner.id], `🐸 ${a.name} とのカエル団子が成功し、保湿と親密度上昇の効果を得た。（水分+25、親密度+8）`);
         logs.push(`🐸 【カエル団子成功】${a.name} と ${partner.name} が身を寄せ合い、保湿した！（水分+25、親密度+8）`);
       } else {
@@ -969,30 +1060,32 @@ function resolveActions(room, logs) {
     // ⑦ 攻撃
     else if (act === "attack") {
       const target = room.actors[actData.targetId];
-      const targetAction = room.actions[target && target.id];
+      const targetAction = room.actions[target && target.id] || (target && target.isPlayer ? { act: "rest" } : null);
       const protectedByHuddle = target && room.huddleProtected && room.huddleProtected.has(target.id);
       const protectedByRest = target && targetAction && targetAction.act === "rest";
       const targetIsProtected = Boolean(protectedByHuddle || protectedByRest);
-      if (target && target.alive && target.zone !== a.zone) {
-        room.turnSummaries[a.id].action = `【攻撃失敗】${target.name} は別エリアへ移動していたため、攻撃は当たらなかった。`;
-        room.turnSummaries[target.id].danger = `${a.name} の攻撃をエリア移動で回避した。HPダメージなし。`;
-        logs.push(`⚔️ ${target.name} は ${a.name} の攻撃をエリア移動で回避した。`);
-      } else if (target && target.alive && target.zone === a.zone && targetIsProtected) {
+      if (target && target.alive && targetIsProtected) {
         const defense = protectedByHuddle ? "カエル団子" : "休む・隠れる";
         room.turnSummaries[a.id].action = `【攻撃回避】${target.name} は「${defense}」で攻撃を回避し、ダメージを受けなかった。`;
         room.turnSummaries[target.id].danger = `${a.name} の攻撃を「${defense}」で回避した。HPダメージなし。`;
         logs.push(`⚔️ ${target.name} は ${a.name} の攻撃を${defense}で回避した。`);
-      } else if (target && target.alive && target.zone === a.zone && !targetIsProtected) {
-        const damage = Math.max(5, Math.min(40, 20 + ((a.level || 1) - (target.level || 1)) * 3));
+      } else if (target && target.alive && !targetIsProtected) {
+        const baseDamage = Math.max(5, Math.min(45, 25 + ((a.level || 1) - (target.level || 1)) * 3));
+        const distance = Math.abs((a.zone || 0) - (target.zone || 0));
+        const damage = Math.max(1, Math.floor(baseDamage * Math.max(0.25, 1 - 0.25 * distance)));
         const hpBefore = target.hp;
         target.hp = Math.max(0, target.hp - damage);
+        const actualDamage = Math.max(0, hpBefore - target.hp);
+        const damagePoints = awardCombatDamageScore(a, target, actualDamage);
         recordLethalDamageSource(room, target, hpBefore, a.name, a.isPlayer ? "player" : "npc");
         if (!attackersByTarget.has(target.id)) attackersByTarget.set(target.id, new Set());
         attackersByTarget.get(target.id).add(a.id);
         addAffinity(a, target, -30);
-        room.turnSummaries[a.id].action = `【攻撃】${target.name} に攻撃し、レベル差を反映した HP-${damage} のダメージ！（親密度-30）`;
-        room.turnSummaries[target.id].danger = `${a.name} から攻撃を受け、HP-${damage} のダメージ！（攻撃側Lv.${a.level || 1} / 自分Lv.${target.level || 1}）`;
-        logs.push(`⚔️ ${a.name} が ${target.name} を攻撃し、HP-${damage}！`);
+        const damageRatio = Math.max(0.25, 1 - 0.25 * distance);
+        const distanceText = distance > 0 ? `（${distance}ゾーン離れていたためダメージ${Math.round(damageRatio * 100)}%）` : "";
+        room.turnSummaries[a.id].action = `【攻撃】${target.name} に攻撃し、レベル差と距離を反映して HP-${actualDamage}！（撃破進捗+${damagePoints}pt、親密度-30）${distanceText}`;
+        room.turnSummaries[target.id].danger = `${a.name} から攻撃を受け、HP-${actualDamage}！（攻撃側Lv.${a.level || 1} / 自分Lv.${target.level || 1}）${distanceText}`;
+        logs.push(`⚔️ ${a.name} が ${target.name} を攻撃し、HP-${actualDamage}！${distanceText}`);
       }
     }
 
@@ -1042,11 +1135,15 @@ function resolveActions(room, logs) {
     attackerIds.forEach(attackerId => {
       const attacker = room.actors[attackerId];
       if (!attacker) return;
-      attacker.killBonusScore = (attacker.killBonusScore || 0) + 2000;
+      if (!attacker.combatScoreByTarget) attacker.combatScoreByTarget = {};
+      const earnedBeforeKill = attacker.combatScoreByTarget[targetId] || 0;
+      const killTopUp = Math.max(0, 2000 - earnedBeforeKill);
+      attacker.combatScoreByTarget[targetId] = earnedBeforeKill + killTopUp;
+      attacker.killBonusScore = (attacker.killBonusScore || 0) + killTopUp;
       const summary = room.turnSummaries[attackerId];
-      if (summary) summary.action += ` / \u6483\u7834\u30dc\u30fc\u30ca\u30b9 +2000pt (${target.name}\u3092\u6483\u7834)`;
-      logs.push(`\u6483\u7834\u30dc\u30fc\u30ca\u30b9: ${attacker.name} +2000pt (${target.name}\u3092\u653b\u6483\u3057HP0\u306b\u3057\u305f)`);
-      if (!attacker.isPlayer) appendNpcEvent(room, `${attacker.name} \u304c ${target.name} \u3092\u5012\u3057\u3001\u30ad\u30eb\u30dc\u30fc\u30ca\u30b9 +2000pt`);
+      if (summary) summary.action += ` / 撃破報酬 +${killTopUp}pt（与ダメージ進捗込み合計2000pt）`;
+      logs.push(`撃破報酬: ${attacker.name} +${killTopUp}pt（${target.name}を倒し、撃破報酬合計2000pt）`);
+      if (!attacker.isPlayer) appendNpcEvent(room, `${attacker.name} が ${target.name} を倒し、撃破報酬合計2000pt`);
     });
   });
 }
@@ -1272,7 +1369,7 @@ function finishGame(room) {
   const ranking = Object.values(room.actors).map(a => {
     const survivalTurn = a.alive ? scoreTurn : Math.max(1, scoreTurn - 1);
     const survivalBonus = a.alive ? 1500 : 0;
-    const score = (survivalTurn * 100) + (a.offspringCount * 50) + (a.level * 200) + survivalBonus + (a.killBonusScore || 0);
+    const score = (survivalTurn * 100) + (a.offspringCount * 50) + (a.level * 200) + survivalBonus + (a.killBonusScore || 0) + (a.strategyBonusScore || 0);
     return {
       id: a.id,
       name: a.name,
@@ -1282,6 +1379,7 @@ function finishGame(room) {
       alive: a.alive,
       offspring: a.offspringCount,
       killBonusScore: a.killBonusScore || 0,
+      strategyBonusScore: a.strategyBonusScore || 0,
       score: score,
       history: a.history
     };
@@ -1315,11 +1413,14 @@ function getSanitizedRoomState(room) {
     coopAcceptanceChances[actor.id] = {};
     coopFeedChances[actor.id] = {};
     Object.values(room.actors).forEach(target => {
-      coopAcceptanceChances[actor.id][target.id] = {
-        feed: calculateCoopAcceptanceChance(room, actor, target, "feed"),
-        huddle: calculateCoopAcceptanceChance(room, actor, target, "huddle"),
-        mate: calculateCoopAcceptanceChance(room, actor, target, "mate")
-      };
+      coopAcceptanceChances[actor.id][target.id] = {};
+      for (let zone = 0; zone < 5; zone++) {
+        coopAcceptanceChances[actor.id][target.id][zone] = {
+          feed: calculateCoopAcceptanceChance(room, actor, target, "feed", zone),
+          huddle: calculateCoopAcceptanceChance(room, actor, target, "huddle", zone),
+          mate: calculateCoopAcceptanceChance(room, actor, target, "mate", zone)
+        };
+      }
       coopFeedChances[actor.id][target.id] = {};
       Object.entries(PREY_MASTER).forEach(([zone, preyList]) => {
         coopFeedChances[actor.id][target.id][zone] = Object.fromEntries(preyList.map(prey => [prey.id, calculateCoopFeedChance(actor, target, prey)]));
@@ -1344,7 +1445,7 @@ function getSanitizedRoomState(room) {
     coopAcceptanceChances,
     coopFeedChances,
     turnSummaries: room.turnSummaries,
-    logs: displayLogs.map(entry => entry.text),
+    logs: displayLogs,
     ranking: room.ranking || null
   };
 }
@@ -1464,7 +1565,6 @@ resolveEvents = function(room, logs) {
     }
   }
 
-  const resolvedChoices = { ...room.eventChoices };
   const resolvedPairs = new Set();
   for (const [actorId, partnerId] of Object.entries(room.pairTargets || {})) {
     const actor = room.actors[actorId];
@@ -1474,22 +1574,36 @@ resolveEvents = function(room, logs) {
     if (!ev || ev.type !== "pair" || room.eventsByActor[partnerId]?.id !== ev.id) continue;
     resolvedPairs.add(actorId);
     resolvedPairs.add(partnerId);
-    if (!actor.alive || !partner.alive || actor.zone !== partner.zone || !ev.resolvePair) continue;
+    if (!actor.alive || !partner.alive || actor.zone !== partner.zone || !ev.resolvePair) {
+      const reason = !actor.alive || !partner.alive ? "相手が行動解決前に倒れたため、ペアイベントは成立しなかった。" : "移動で離れたため、ペアイベントは発生しなかった。";
+      if (room.turnSummaries[actorId]) room.turnSummaries[actorId].event = `【イベント不成立】${reason}`;
+      if (room.turnSummaries[partnerId]) room.turnSummaries[partnerId].event = `【イベント不成立】${reason}`;
+      continue;
+    }
+    const selected1 = savedChoices[actorId] || ev.choices[0].id;
+    const selected2 = savedChoices[partnerId] || ev.choices[0].id;
     const c1 = room.eventChoices[actorId] || ev.choices[0].id;
     const c2 = room.eventChoices[partnerId] || ev.choices[0].id;
-    const result = ev.resolvePair(actor, c1, partner, c2);
+    const affinityBefore = (actor.affinity && actor.affinity[partnerId]) || 0;
+    let result;
+    try {
+      result = ev.resolvePair(actor, c1, partner, c2);
+    } catch (error) {
+      console.error(`Pair event ${ev.id} failed:`, error);
+      result = null;
+    }
+    if (!result || typeof result !== "object") result = {};
     const choice1 = ev.choices.find(choice => choice.id === c1);
     const choice2 = ev.choices.find(choice => choice.id === c2);
+    const selectedChoice1 = ev.choices.find(choice => choice.id === selected1);
+    const selectedChoice2 = ev.choices.find(choice => choice.id === selected2);
     const affinity = (actor.affinity && actor.affinity[partnerId]) || 0;
-    const betrayalChoice = ev.choices[ev.choices.length - 1];
-    room.turnSummaries[actorId].event = `\u9078\u629e: ${choice1?.text || c1} / \u76f8\u624b\u306e\u9078\u629e: ${choice2?.text || c2} / \u7d50\u679c: ${result.log1} / \u89aa\u5bc6\u5ea6: ${affinity}`;
-    room.turnSummaries[partnerId].event = `\u9078\u629e: ${choice2?.text || c2} / \u76f8\u624b\u306e\u9078\u629e: ${choice1?.text || c1} / \u7d50\u679c: ${result.log2} / \u89aa\u5bc6\u5ea6: ${affinity}`;
-    if (betrayalChoice && resolvedChoices[partnerId] === betrayalChoice.id) {
-      room.turnSummaries[actorId].event += ` / ${partner.name}\u306e\u88cf\u5207\u308a\u9078\u629e\u304c\u5b9f\u884c\u3055\u308c\u305f\u7d50\u679c: ${result.log2}`;
-    }
-    if (betrayalChoice && resolvedChoices[actorId] === betrayalChoice.id) {
-      room.turnSummaries[partnerId].event += ` / ${actor.name}\u306e\u88cf\u5207\u308a\u9078\u629e\u304c\u5b9f\u884c\u3055\u308c\u305f\u7d50\u679c: ${result.log1}`;
-    }
+    const log1 = result.log1 || `${partner.name}とのペアイベント「${ev.title || "イベント"}」が解決した。`;
+    const log2 = result.log2 || `${actor.name}とのペアイベント「${ev.title || "イベント"}」が解決した。`;
+    const actualText1 = selected1 === c1 ? "" : ` / 実際の行動: ${choice1?.text || c1}（裏切りは発生せず）`;
+    const actualText2 = selected2 === c2 ? "" : ` / 実際の行動: ${choice2?.text || c2}（裏切りは発生せず）`;
+    room.turnSummaries[actorId].event = `選択: ${selectedChoice1?.text || selected1}${actualText1} / 相手の選択: ${selectedChoice2?.text || selected2}${actualText2} / 結果: ${log1} / 親密度: ${affinityBefore}→${affinity}`;
+    room.turnSummaries[partnerId].event = `選択: ${selectedChoice2?.text || selected2}${actualText2} / 相手の選択: ${selectedChoice1?.text || selected1}${actualText1} / 結果: ${log2} / 親密度: ${affinityBefore}→${affinity}`;
   }
 
   Object.values(room.actors).forEach(actor => {
@@ -1497,7 +1611,15 @@ resolveEvents = function(room, logs) {
     const ev = room.eventsByActor[actor.id];
     if (!ev || ev.type !== "solo" || !ev.resolve) return;
     const choice = room.eventChoices[actor.id] || ev.choices?.[0]?.id || "none";
-    room.turnSummaries[actor.id].event = ev.resolve(actor, choice);
+    const result = ev.resolve(actor, choice);
+    room.turnSummaries[actor.id].event = result || `【イベント】${ev.title || "イベント"}が発生した。`;
+  });
+
+  Object.values(room.actors).forEach(actor => {
+    const ev = room.eventsByActor[actor.id];
+    if (ev && ev.type === "pair" && !resolvedPairs.has(actor.id) && room.turnSummaries[actor.id]) {
+      room.turnSummaries[actor.id].event = "【イベント不成立】ペアイベントの相手が見つからず、今回は発生しなかった。";
+    }
   });
 
   Object.values(room.turnSummaries).forEach(summary => {
@@ -1603,11 +1725,11 @@ decideNpcActions = function(room) {
     let hp = npc.hp, food = npc.food, water = npc.water, stamina = npc.stamina;
     let levelPoints = 0, eggsPoints = 0, killPoints = 0;
     if (action.act === "feed") {
-      stamina = Math.max(0, stamina - 10);
+      stamina = Math.max(0, stamina - (action.cooperative ? 12 : 10));
       if (success) {
         let gainFood = action.prey.food;
         let gainExp = Math.round(action.prey.exp * EXP_GAIN_MULTIPLIER);
-        if (bigEater(npc)) { gainFood = Math.round(gainFood * 1.2); gainExp = Math.round(gainExp * 1.2); }
+        if (bigEater(npc) && !action.cooperative) { gainFood = Math.round(gainFood * 1.2); gainExp = Math.round(gainExp * 1.2); }
         food = Math.min(100, food + gainFood);
         levelPoints = levelsFromExp(npc, gainExp) * 200;
       }
@@ -1619,7 +1741,7 @@ decideNpcActions = function(room) {
       hp = Math.min(100, hp + 20);
       stamina = Math.min(100, stamina + 35);
     } else if (action.act === "huddle") {
-      water = Math.min(100, water + 15);
+      water = Math.min(100, water + (action.cooperative ? 25 : 15));
     } else if (action.act === "mate") {
       stamina = Math.max(0, stamina - 50);
       eggsPoints = action.eggs * 50;
@@ -1636,7 +1758,7 @@ decideNpcActions = function(room) {
     hp -= damage;
     const metabolismDeath = hp <= 0;
     let predatorDeath = 0;
-    if (!metabolismDeath && action.act !== "rest" && room.weather !== WEATHERS[4]) {
+    if (!metabolismDeath && action.act !== "rest" && !(action.act === "huddle" && action.cooperative) && room.weather !== WEATHERS[4]) {
       const alerted = room.predatorThreats && room.predatorThreats[zone] === true;
       const attackChance = alerted ? [0.08, 0.12, 0.20, 0.28, 0.36][zone] : [0.005, 0.008, 0.012, 0.016, 0.02][zone];
       const zoneCount = living.filter(actor => actor.zone === zone).length;
@@ -1664,6 +1786,13 @@ decideNpcActions = function(room) {
     return stateValue * aliveAfterTurn + levelPoints * (1 - deathChance) + eggsPoints + killPoints - deathPenalty + aliveAfterTurn * 100;
   };
   const expectedEggs = affinity => affinity >= 70 ? 53 : affinity >= 40 ? 38 : affinity >= 20 ? 25.5 : 18;
+  const explorationValue = (npc, zone) => {
+    const visited = new Set(Array.isArray(npc.visitedZones) ? npc.visitedZones : [npc.zone]);
+    visited.add(zone);
+    const milestones = npc.explorationMilestones || {};
+    let value = (visited.size >= 4 && !milestones.fourZones ? 400 : 0) + (visited.size >= 5 && !milestones.fiveZones ? 200 : 0);
+    return Math.min(value, Math.max(0, 1000 - (npc.strategyBonusScore || 0)));
+  };
   const setEventChoice = (npc, personalityIndex) => {
     const event = room.eventsByActor && room.eventsByActor[npc.id];
     if (event && event.choices && event.choices.length) {
@@ -1686,10 +1815,38 @@ decideNpcActions = function(room) {
         const action = { act: "feed", prey };
         const expected = chance * simulate(npc, zone, action, true) + (1 - chance) * simulate(npc, zone, action, false);
         candidates.push({ act: "feed", zone, prey, score: expected, kind: "feed" });
+        if (isCoopLargePrey(prey)) {
+          living.filter(target => !target.isPlayer && target.id !== npc.id && target.zone === zone && !(room.coopAccepted && room.coopAccepted[target.id]))
+            .forEach(partner => {
+              const acceptance = calculateCoopAcceptanceChance(room, npc, partner, "feed", zone) / 100;
+              if (acceptance <= 0) return;
+              const splitPrey = { ...prey, food: Math.round(prey.food * 0.55), exp: Math.round(prey.exp * 0.55) };
+              const coopChance = calculateCoopFeedChance(npc, partner, prey) / 100;
+              const coopExpected = coopChance * simulate(npc, zone, { act: "feed", prey: splitPrey, cooperative: true }, true)
+                + (1 - coopChance) * simulate(npc, zone, { act: "feed", prey: splitPrey, cooperative: true }, false);
+              const milestoneValue = npc.strategyMilestones && npc.strategyMilestones.largePreyCoop ? 0 : Math.min(300, Math.max(0, 1000 - (npc.strategyBonusScore || 0)));
+              const affinity = (npc.affinity && npc.affinity[partner.id]) || 0;
+              const relationshipValue = Math.max(0, expectedEggs(affinity + 8) - expectedEggs(affinity)) * 50 * 0.15;
+              const value = acceptance * coopExpected + (1 - acceptance) * expected
+                + (acceptance * coopChance * (milestoneValue + relationshipValue));
+              candidates.push({ act: "feed", zone, prey, partnerId: partner.id, score: value, kind: "coopFeed" });
+            });
+        }
       });
       candidates.push({ act: "water", zone, score: simulate(npc, zone, { act: "water" }), kind: "water" });
       candidates.push({ act: "rest", zone, score: simulate(npc, zone, { act: "rest" }), kind: "rest" });
       candidates.push({ act: "huddle", zone, score: simulate(npc, zone, { act: "huddle" }), kind: "huddle" });
+      living.filter(target => !target.isPlayer && target.id !== npc.id && target.zone === zone && !(room.coopAccepted && room.coopAccepted[target.id]))
+        .forEach(partner => {
+          const acceptance = calculateCoopAcceptanceChance(room, npc, partner, "huddle", zone) / 100;
+          if (acceptance <= 0) return;
+          const milestoneValue = npc.strategyMilestones && npc.strategyMilestones.huddle ? 0 : Math.min(150, Math.max(0, 1000 - (npc.strategyBonusScore || 0)));
+          const affinity = (npc.affinity && npc.affinity[partner.id]) || 0;
+          const relationshipValue = Math.max(0, expectedEggs(affinity + 8) - expectedEggs(affinity)) * 50 * 0.15;
+          const value = acceptance * (simulate(npc, zone, { act: "huddle", cooperative: true }) + milestoneValue + relationshipValue)
+            + (1 - acceptance) * simulate(npc, zone, { act: "huddle" });
+          candidates.push({ act: "huddle", zone, partnerId: partner.id, score: value, kind: "coopHuddle" });
+        });
       if (npc.stage >= 5) {
         const nearby = living.filter(target => target.id !== npc.id && target.zone === zone);
         const callValue = nearby.reduce((total, target) => {
@@ -1700,11 +1857,18 @@ decideNpcActions = function(room) {
         if (nearby.length) candidates.push({ act: "call", zone, score: simulate(npc, zone, { act: "call" }) + callValue, kind: "call" });
       }
       living.filter(target => target.id !== npc.id && target.zone === zone).forEach(target => {
-        const damage = Math.max(5, Math.min(40, 20 + ((npc.level || 1) - (target.level || 1)) * 3));
-        if (target.hp <= damage) {
-          const killPoints = 2000 * 0.5; // Do not inspect the target's unsubmitted action.
-          candidates.push({ act: "attack", zone, targetId: target.id, score: simulate(npc, zone, { act: "attack", killPoints }), kind: "attack" });
-        }
+        const targetAction = room.actions[target.id] || (target.isPlayer ? { act: "rest" } : null);
+        const protectedTarget = Boolean(targetAction && targetAction.act === "rest") || Boolean(room.coopAccepted[target.id] && room.coopAccepted[target.id].type === "huddle");
+        const targetZone = targetAction && canEnterZone(target, targetAction.moveZone) ? Number(targetAction.moveZone) : target.zone;
+        const distance = Math.abs(zone - targetZone);
+        const baseDamage = Math.max(5, Math.min(45, 25 + ((npc.level || 1) - (target.level || 1)) * 3));
+        const damage = protectedTarget ? 0 : Math.max(1, Math.floor(baseDamage * Math.max(0.25, 1 - 0.25 * distance)));
+        const priorScore = npc.combatScoreByTarget && npc.combatScoreByTarget[target.id] || 0;
+        const actualDamage = Math.min(Math.max(0, target.hp), damage);
+        const progress = Math.min(actualDamage * 5, Math.max(0, 500 - priorScore));
+        const expectedKillTopUp = damage > 0 && target.hp <= damage ? Math.max(0, 2000 - priorScore - progress) * 0.35 : 0;
+        const expectedCombatPoints = protectedTarget ? 0 : (progress * 0.7) + expectedKillTopUp;
+        candidates.push({ act: "attack", zone, targetId: target.id, score: simulate(npc, zone, { act: "attack", killPoints: expectedCombatPoints }), kind: "attack" });
       });
       if (npc.stage >= 6 && npc.stamina >= 50) {
         living.filter(target => !target.isPlayer && target.id !== npc.id && target.zone === zone && target.stage >= 6 && target.gender !== npc.gender && !(room.coopAccepted && room.coopAccepted[target.id]))
@@ -1716,6 +1880,7 @@ decideNpcActions = function(room) {
       }
     });
     candidates.forEach(candidate => {
+      candidate.score += explorationValue(npc, candidate.zone);
       if (personality === 0 && candidate.kind === "mate") candidate.score *= 1.025;
       if (personality === 1 && candidate.kind === "feed") candidate.score *= 1.02;
       if (personality === 2 && candidate.kind === "attack") candidate.score *= 1.025;
@@ -1727,7 +1892,19 @@ decideNpcActions = function(room) {
     const window = best ? Math.max(10, Math.abs(best.score) * 0.025) : 0;
     const nearBest = candidates.filter(candidate => best && candidate.score >= best.score - window);
     const chosen = nearBest[Math.floor(Math.random() * nearBest.length)] || { act: "rest", zone: npc.zone };
-    room.actions[npc.id] = { moveZone: chosen.zone, act: chosen.act, targetPreyId: chosen.prey && chosen.prey.id, targetId: chosen.targetId || null };
+      room.actions[npc.id] = { moveZone: chosen.zone, act: chosen.act, targetPreyId: chosen.prey && chosen.prey.id, targetId: chosen.targetId || chosen.partnerId || null, coopRequested: chosen.kind === "coopFeed" };
+    if (chosen.partnerId && (chosen.kind === "coopFeed" || chosen.kind === "coopHuddle")) {
+      const partner = room.actors[chosen.partnerId];
+      const coopType = chosen.kind === "coopFeed" ? "feed" : "huddle";
+      const chance = calculateCoopAcceptanceChance(room, npc, partner, coopType, chosen.zone) || 0;
+      if (partner && Math.random() * 100 < chance) {
+        room.coopAccepted[npc.id] = { partnerId: chosen.partnerId, initiatorId: npc.id, type: coopType, preyId: chosen.prey && chosen.prey.id, zone: chosen.zone };
+        room.coopAccepted[chosen.partnerId] = { partnerId: npc.id, initiatorId: npc.id, type: coopType, preyId: chosen.prey && chosen.prey.id, zone: chosen.zone };
+      } else if (partner) {
+        addAffinity(partner, npc, -6);
+        if (chosen.kind === "coopFeed") room.actions[npc.id].coopRequested = true;
+      }
+    }
     if (chosen.act === "mate" && chosen.targetId) {
       room.coopAccepted[npc.id] = { partnerId: chosen.targetId, initiatorId: npc.id, type: "mate" };
       room.coopAccepted[chosen.targetId] = { partnerId: npc.id, initiatorId: npc.id, type: "mate" };

@@ -487,7 +487,7 @@
               <option value="water">水を飲む (水分補給)</option>
               <option value="rest">休む・隠れる (HP/気力)</option>
               <option value="huddle">カエル団子 (集団保湿)</option>
-              <option value="attack">攻撃する (小突く/排除)</option>
+          <option value="attack">攻撃する（移動先まで追撃・距離で威力減）</option>
               <option value="mate">求愛・繁殖 (成体のみ)</option>
             </select>
           </div>
@@ -602,9 +602,10 @@ const RULE_TEXTS = {
   1: `<strong>【ゲームの目的と勝利条件】</strong><br>
 ・プレイヤーは1つの卵塊から生まれた兄弟の1匹となり、過酷な池で生き延びます。<br>
 ・全35ターン（約15〜20分 / 1T: 120秒）で池が凍結（冬眠）するか、最後の1匹で終了。<br>
-・<strong>最終スコア（適応度）計算式</strong>：<br>
-  (生存ターン × 100) ＋ (残した卵の数 × 50) ＋ <strong>(最終レベル × 150pt)</strong> ＋ 生存ボーナス(1500pt)<br>
-※成体になった後もレベルを上げるほどスコアが大幅に跳ね上がります！`,
+・<strong>最終スコア</strong>：生存ターン×100 ＋ 卵×50 ＋ 最終レベル×200 ＋ 生存ボーナス1500 ＋ 戦闘報酬 ＋ 戦略ボーナス。<br>
+・<strong>戦略ボーナス</strong>：4ゾーン到達で+400、全5ゾーン到達でさらに+200。初めて大型獲物の協力捕食で+300、初めてのカエル団子で+150。各個体の合計1000ptまで。<br>
+・<strong>戦闘報酬</strong>：敵カエルへの実ダメージ1ごとに+5pt（相手1匹につき最大+500pt）。倒すとその相手への戦闘報酬が合計+2000ptになるよう追加。複数人で倒した場合は攻撃した全員に適用。<br>
+※成長・繁殖・探索・協力・戦闘など、複数の勝ち筋を選べます。`,
 
   2: `<strong>【ゾーンの危険度と天候システム】</strong><br>
 <strong>【ゾーンのハイリスク・ハイリターン】</strong><br>
@@ -620,7 +621,7 @@ const RULE_TEXTS = {
 ・⛈️ <strong>豪雨・嵐</strong>：水分消費ゼロ。水流で気力消費が増えるが、<strong>天敵が隠れて襲来しない安全な嵐</strong>！`,
 
   3: `<strong>【親密度・協力申請・交配産卵数】</strong><br>
-・<strong>協力申請の受託確率</strong>：相手の性格・親密度・空腹度からリアルタイム計算され、申請枠に表示されます。<br>
+・<strong>協力申請の受託確率</strong>：相手の性格・親密度・空腹度からリアルタイム計算され、選択した移動先を前提に申請枠へ表示されます。NPCへの申請も表示値と同じ確率で判定されます。<br>
 ・<strong>親密度とピンク枠</strong>：協力や団子で親密度が40を超えると<strong>「ピンク枠💕」</strong>に変化！<br>
 ・<strong>【親密度連動の産卵数テーブル】</strong>：<br>
   ・親密度 0〜19 (初対面)：<strong>15 〜 20 個</strong><br>
@@ -635,7 +636,11 @@ const RULE_TEXTS = {
 ・<strong>第4段階 (尾の吸収・変態期 / Lv.7〜)</strong>：<br>
   <strong>残機が消滅し、完全な「永久死亡」へ切り替わります！</strong><br>
 ・<strong>第6段階 (成体カエル / Lv.12〜)</strong>：<br>
-  求愛・繁殖が解禁！成体後もレベルは上限なく上がり続け、体長・体重が増加します。`
+  求愛・繁殖が解禁！成体後もレベルは上限なく上がり続け、体長・体重が増加します。<br><br>
+<strong>【攻撃と防御】</strong><br>
+・攻撃は相手が移動しても命中します。攻撃後の両者の距離1ゾーンごとに威力が25%下がり、最低25%になります。<br>
+・基本ダメージは25、レベル差1ごとに±3（最大45）。「休む・隠れる」と成立したカエル団子は攻撃を回避します。<br>
+・実際に与えたHPダメージ1ごとに戦闘報酬+5pt（相手ごとに最大500pt）。撃破時は同じ相手への合計が2000ptになるよう追加されます。`
 };
 
 let ws = null;
@@ -1065,7 +1070,7 @@ function respondCoopRequest(accept) {
 
 function showTurnSummaryModal(sum, state) {
   document.getElementById("sum-turn-title").innerText = `【 TURN ${sum.turn} 生存結果 】`;
-  document.getElementById("sum-action-txt").innerText = sum.action || "行動なし";
+  document.getElementById("sum-action-txt").innerText = [sum.action || "行動なし", sum.scoreLog].filter(Boolean).join(" / ");
   document.getElementById("sum-event-txt").innerText = sum.event || "特になし";
   document.getElementById("sum-meta-txt").innerText = sum.metabolism || "正常";
 
@@ -1485,7 +1490,7 @@ function updatePreyOptions() {
   if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
   const me = lastState.actors[myActorId];
   let targetZone = parseInt(document.getElementById("move-sel").value, 10);
-  if (isNaN(targetZone)) targetZone = parseInt(me.zone, 10) || 1;
+  if (isNaN(targetZone)) targetZone = Number.isInteger(parseInt(me.zone, 10)) ? parseInt(me.zone, 10) : 0;
 
   const preyList = PREY_MASTER[targetZone] || [];
   const sel = document.getElementById("feed-target-sel");
@@ -1531,7 +1536,8 @@ function updatePreyOptions() {
 function updateDisplayedFeedChances() {
   if (!lastState || !lastState.actors || !lastState.actors[myActorId]) return;
   const me = lastState.actors[myActorId];
-  const zone = String(parseInt(document.getElementById("move-sel").value, 10) || me.zone);
+  const selectedZone = parseInt(document.getElementById("move-sel").value, 10);
+  const zone = String(Number.isNaN(selectedZone) ? me.zone : selectedZone);
   const coopSelected = document.getElementById("act-sel").value === "feed" && document.getElementById("coop-feed-chk").checked;
   const partnerId = document.getElementById("actor-target-sel").value;
   const label = document.getElementById("feed-chance-label");
@@ -1553,7 +1559,7 @@ function updateActorTargetOptions() {
   const me = lastState.actors[myActorId];
   const act = document.getElementById("act-sel").value;
   let targetZone = parseInt(document.getElementById("move-sel").value, 10);
-  if (isNaN(targetZone)) targetZone = parseInt(me.zone, 10) || 1;
+  if (isNaN(targetZone)) targetZone = Number.isInteger(parseInt(me.zone, 10)) ? parseInt(me.zone, 10) : 0;
 
   const sel = document.getElementById("actor-target-sel");
   const prev = sel.value;
@@ -1602,7 +1608,9 @@ function updateCoopChanceDisplay() {
     badge.style.color = "#aaddff";
     return;
   }
-  const chance = lastState.coopAcceptanceChances?.[me.id]?.[target.id]?.[coopType];
+  const selectedZone = parseInt(document.getElementById("move-sel").value, 10);
+  const zone = String(Number.isNaN(selectedZone) ? me.zone : selectedZone);
+  const chance = lastState.coopAcceptanceChances?.[me.id]?.[target.id]?.[zone]?.[coopType];
   if (!Number.isFinite(chance)) {
     badge.innerText = "協力見込み: 算出できません";
     badge.style.color = "#aaddff";
@@ -1695,14 +1703,16 @@ function sendAction() {
       turn: lastState && lastState.turn,
       targetId: targetId,
       coopType: "feed",
-      preyId: targetPreyId
+      preyId: targetPreyId,
+      moveZone
     }));
   } else if ((act === "huddle" || act === "mate") && targetId && ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
       type: "SEND_COOP_REQUEST",
       turn: lastState && lastState.turn,
       targetId: targetId,
-      coopType: act
+      coopType: act,
+      moveZone
     }));
   }
 
@@ -1721,7 +1731,7 @@ function openLiveRankingModal() {
   box.innerHTML = "";
   const players = Object.values(lastState.actors || {}).map(actor => {
     const survivalTurn = actor.alive ? lastState.turn : Math.max(1, lastState.turn - 1);
-    const score = (survivalTurn * 100) + ((actor.offspringCount || 0) * 50) + ((actor.level || 1) * 200) + (actor.alive ? 1500 : 0) + (actor.killBonusScore || 0);
+    const score = (survivalTurn * 100) + ((actor.offspringCount || 0) * 50) + ((actor.level || 1) * 200) + (actor.alive ? 1500 : 0) + (actor.killBonusScore || 0) + (actor.strategyBonusScore || 0);
     return { actor, score };
   }).sort((a, b) => b.score - a.score);
 
@@ -1731,7 +1741,7 @@ function openLiveRankingModal() {
     const label = document.createElement("span");
     label.textContent = `${index + 1}位  ${actor.name} (${actor.isPlayer ? "PL" : "NPC"}, Lv.${actor.level}, ${actor.alive ? "生存中" : "脱落"})`;
     const points = document.createElement("strong");
-    points.textContent = `${score} pt`;
+    points.textContent = `${score} pt（戦略+${actor.strategyBonusScore || 0} / 戦闘+${actor.killBonusScore || 0}）`;
     row.append(label, points);
     box.appendChild(row);
   });
@@ -1750,7 +1760,7 @@ function renderResult(state) {
     box.innerHTML += `
       <div class="rank-row">
         <span><strong>${idx + 1}位</strong> ${r.isPlayer ? 'PL' : 'NPC'} Lv.${r.level} ${r.name} (${r.gender}) [${r.alive ? '生存' : '死亡'}]</span>
-        <span>卵: ${r.offspring}個 / <strong>${r.score}pt</strong> / キルボーナス: ${r.killBonusScore || 0}pt</span>
+        <span>卵: ${r.offspring}個 / <strong>${r.score}pt</strong> / 戦闘報酬: ${r.killBonusScore || 0}pt / 戦略ボーナス: ${r.strategyBonusScore || 0}pt</span>
       </div>
     `;
   });
